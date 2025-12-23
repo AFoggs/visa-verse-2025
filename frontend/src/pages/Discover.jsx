@@ -48,6 +48,8 @@ function Discover() {
 
   const currentMatch = matches[currentIndex];
 
+  const [successMessage, setSuccessMessage] = useState('');
+
   const handleConnect = async () => {
     if (!currentMatch || actionLoading) return;
 
@@ -55,14 +57,18 @@ function Discover() {
     setDirection('right');
 
     try {
-      await matchesApi.connect(currentMatch.userId);
+      const result = await matchesApi.connect(currentMatch.userId);
+      console.log('Connect result:', result);
+      setSuccessMessage(`Connected with ${currentMatch.name}!`);
       setTimeout(() => {
+        setSuccessMessage('');
         nextMatch();
         setDirection(null);
         setActionLoading(false);
-      }, 300);
+      }, 1500);
     } catch (error) {
       console.error('Connect error:', error);
+      alert(`Failed to connect: ${error.message}`);
       setDirection(null);
       setActionLoading(false);
     }
@@ -304,8 +310,19 @@ function Discover() {
         </motion.div>
       )}
 
+      {/* Success Message */}
+      {successMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 p-4 bg-success-400/20 border border-success-400/30 rounded-xl text-center text-success-400 font-medium"
+        >
+          {successMessage}
+        </motion.div>
+      )}
+
       {/* Action Buttons */}
-      {!showFeedback && (
+      {!showFeedback && !successMessage && (
         <div className="flex gap-4 mt-6">
           <button
             onClick={handleDecline}

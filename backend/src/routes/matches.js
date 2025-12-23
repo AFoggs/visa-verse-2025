@@ -98,6 +98,7 @@ router.get('/:matchId', async (req, res) => {
 router.post('/connect', async (req, res) => {
   try {
     const { userId } = req.body;
+    console.log('Connect request:', { fromUser: req.user.uid, toUser: userId });
 
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
@@ -169,10 +170,11 @@ router.post('/connect', async (req, res) => {
       'connections.connections': [...otherConnections, req.user.uid],
     });
 
+    console.log('Connect success:', { matchId, user1: req.user.uid, user2: userId });
     res.json({ match: matchData });
   } catch (error) {
     console.error('Connect error:', error);
-    res.status(500).json({ error: 'Failed to connect' });
+    res.status(500).json({ error: 'Failed to connect', details: error.message });
   }
 });
 
