@@ -59,7 +59,7 @@ Current interests: ${interests.join(', ') || 'None set yet'}
     });
 
     const response = await getClient().messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 500,
       system: COMPANION_SYSTEM_PROMPT + contextPrompt,
       messages,
@@ -110,7 +110,7 @@ Generate exactly 3 icebreaker questions that:
 Return ONLY a JSON array of 3 strings, nothing else:`;
 
     const response = await getClient().messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -156,7 +156,7 @@ Shared interests: ${sharedInterests?.join(', ') || 'Various topics'}
 Generate ONE short, casual conversation prompt. Just the prompt text, nothing else.`;
 
     const response = await getClient().messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 100,
       messages: [{ role: 'user', content: prompt }],
     });
@@ -194,7 +194,7 @@ Return a JSON object with these fields:
 Return ONLY the JSON object, no other text.`;
 
     const response = await getClient().messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
     });
