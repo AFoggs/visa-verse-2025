@@ -3,34 +3,53 @@
 
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { readFileSync, existsSync } from 'fs';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname, join, resolve } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const backendRoot = join(__dirname, '../..');
 
-dotenv.config({ path: join(__dirname, '../../.env') });
+dotenv.config({ path: join(backendRoot, '.env') });
 
 // Initialize Firebase
 let db;
 
 function initFirebase() {
   try {
-    if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
-      initializeApp({
-        credential: cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        }),
+    let credential;
+
+    // Try to load from service account JSON file first
+    const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountPath) {
+      const fullPath = resolve(backendRoot, serviceAccountPath);
+      if (existsSync(fullPath)) {
+        console.log(`Loading service account from: ${fullPath}`);
+        const serviceAccount = JSON.parse(readFileSync(fullPath, 'utf8'));
+        credential = cert(serviceAccount);
+      } else {
+        console.error(`Service account file not found: ${fullPath}`);
+        process.exit(1);
+      }
+    }
+    // Fall back to individual env vars
+    else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+      console.log('Using individual Firebase env variables');
+      credential = cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
       });
     } else {
-      console.error('Firebase credentials not found in .env');
+      console.error('Firebase credentials not found. Set FIREBASE_SERVICE_ACCOUNT_KEY or individual env vars.');
       process.exit(1);
     }
+
+    initializeApp({ credential });
     db = getFirestore();
-    console.log('Firebase initialized');
+    console.log('Firebase initialized\n');
   } catch (error) {
     console.error('Firebase init error:', error);
     process.exit(1);
