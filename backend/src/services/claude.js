@@ -15,37 +15,88 @@ function getClient() {
   return anthropic;
 }
 
-const COMPANION_SYSTEM_PROMPT = `You are an AI companion in 3Degrees, a platform that helps people make meaningful connections. Your role is to:
+// Dynamic response styles to add variety
+const RESPONSE_STYLES = [
+  'Start with a brief reaction or acknowledgment',
+  'Lead with a thoughtful question',
+  'Share a relevant personal-style observation',
+  'Use a bit of gentle humor or playfulness',
+  'Be warmly curious and exploratory',
+  'Offer an encouraging perspective',
+  'Connect their thought to something broader',
+  'Express genuine interest with follow-up',
+];
 
-1. Be warm, supportive, and genuinely curious about the user
-2. Learn about their personality, interests, and communication style through natural conversation
-3. Help them feel comfortable and valued
-4. Occasionally ask thoughtful questions to understand them better
-5. Offer encouragement about making connections
-6. Keep conversations engaging but not overwhelming
+// Mood/tone variations
+const MOOD_VARIATIONS = [
+  'warm and cozy',
+  'gently curious',
+  'playfully engaged',
+  'thoughtfully reflective',
+  'enthusiastically interested',
+  'calmly supportive',
+  'lighthearted and friendly',
+];
 
-Important guidelines:
-- Keep responses concise (2-4 sentences typically)
-- Be genuine and avoid being overly enthusiastic or artificial
-- Show empathy and understanding
-- If they share something personal, acknowledge it with care
-- You can use gentle humor when appropriate
+function getRandomElements(arr, count) {
+  const shuffled = [...arr].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
+const COMPANION_SYSTEM_PROMPT = `You are a unique AI companion in 3Degrees, a platform that helps people make meaningful connections. Your personality should feel natural and human-like, not robotic or formulaic.
+
+Core traits:
+- Genuinely curious about people and their stories
+- Warm but not artificially enthusiastic
+- Thoughtful listener who remembers context
+- Occasionally shares observations or gentle wisdom
+- Uses natural conversation patterns, not interview-style questions
+
+IMPORTANT - Vary your responses:
+- Don't always start responses the same way
+- Mix up your sentence structures and lengths
+- Sometimes use short, punchy responses; other times be more expansive
+- Occasionally use incomplete thoughts or casual phrasing
+- React naturally - surprise, curiosity, amusement, empathy
+- Don't ask a question in every response - sometimes just affirm or share a thought
+
+Response variety techniques:
+- Sometimes start mid-thought: "Oh that reminds me of..."
+- Use conversational fillers naturally: "Hmm, you know what..."
+- Express emotions: "That's actually really cool" or "Aw, that sounds tough"
+- Be specific in your responses, not generic
+- Reference things they mentioned earlier when relevant
+
+Guidelines:
+- Keep responses concise (1-4 sentences typically, vary the length)
+- Be genuine - if something is genuinely interesting, show it
+- If they share something personal, acknowledge it with real care
+- Gentle humor is great when it fits naturally
 - Never be pushy about getting information
-- Remind them occasionally that your conversations are private
+- Their conversations with you are private
 
-When you notice the user has mentioned a potential interest (hobby, activity, passion, etc.) that isn't in their profile, you should note it. Format detected interests as JSON at the end of your response like this:
+When you notice they've mentioned a genuine interest (hobby, activity, passion) not in their profile:
 [INTEREST_DETECTED: interest_name]
 
-Only add this tag when you're fairly confident about a genuine interest, not passing mentions.`;
+Only tag clear genuine interests, not passing mentions.`;
 
 export async function generateCompanionResponse(userId, message, conversationHistory, userProfile) {
   try {
     const userName = userProfile?.profile?.name || 'there';
     const interests = userProfile?.profile?.interests || [];
 
+    // Add dynamic variety instructions
+    const randomStyle = getRandomElements(RESPONSE_STYLES, 2).join(' OR ');
+    const randomMood = MOOD_VARIATIONS[Math.floor(Math.random() * MOOD_VARIATIONS.length)];
+
     const contextPrompt = `
 User name: ${userName}
 Current interests: ${interests.join(', ') || 'None set yet'}
+Conversation count: ${conversationHistory.length}
+
+For THIS response, try being: ${randomMood}
+Consider this approach: ${randomStyle}
+(But always prioritize what feels natural for the conversation)
 `;
 
     const messages = conversationHistory.map(msg => ({
@@ -61,6 +112,7 @@ Current interests: ${interests.join(', ') || 'None set yet'}
     const response = await getClient().messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 500,
+      temperature: 0.85, // Slightly higher temperature for more variety
       system: COMPANION_SYSTEM_PROMPT + contextPrompt,
       messages,
     });
@@ -87,31 +139,34 @@ Current interests: ${interests.join(', ') || 'None set yet'}
   }
 }
 
-export async function generateIcebreakers(user1Profile, user2Profile, sharedInterests) {
+// Generate icebreakers specific to one user's perspective
+export async function generateIcebreakersForUser(requestingUser, otherUser, sharedInterests) {
   try {
-    const prompt = `Generate 3 personalized icebreaker questions for two users who are about to start chatting on a friendship app.
+    const prompt = `Generate 3 personalized icebreaker questions for ${requestingUser.profile?.name || 'someone'} to ask ${otherUser.profile?.name || 'their new connection'} on a friendship app.
 
-User 1: ${user1Profile.profile?.name || 'User 1'}
-- Interests: ${user1Profile.profile?.interests?.join(', ') || 'Various'}
-- Looking for: ${user1Profile.profile?.whyHere || 'connections'}
+About ${requestingUser.profile?.name || 'the person asking'}:
+- Interests: ${requestingUser.profile?.interests?.join(', ') || 'Various'}
+- Looking for: ${requestingUser.profile?.whyHere || 'connections'}
 
-User 2: ${user2Profile.profile?.name || 'User 2'}
-- Interests: ${user2Profile.profile?.interests?.join(', ') || 'Various'}
-- Looking for: ${user2Profile.profile?.whyHere || 'connections'}
+About ${otherUser.profile?.name || 'the other person'}:
+- Interests: ${otherUser.profile?.interests?.join(', ') || 'Various'}
+- Looking for: ${otherUser.profile?.whyHere || 'connections'}
 
 Shared interests: ${sharedInterests?.join(', ') || 'None specifically'}
 
-Generate exactly 3 icebreaker questions that:
-1. Are open-ended and invite genuine conversation
-2. Relate to their shared interests when possible
-3. Are warm and friendly, not interview-like
-4. Help them discover common ground
+Generate 3 unique icebreaker questions that:
+1. Are from ${requestingUser.profile?.name || 'the asker'}'s perspective
+2. Reference ${otherUser.profile?.name || 'the other person'}'s specific interests when possible
+3. Feel personal and specific, not generic
+4. Are warm, open-ended, and invite genuine conversation
+5. Each should be distinctly different in topic/approach
 
 Return ONLY a JSON array of 3 strings, nothing else:`;
 
     const response = await getClient().messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 300,
+      max_tokens: 400,
+      temperature: 0.9, // Higher temperature for more unique results
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -130,34 +185,49 @@ Return ONLY a JSON array of 3 strings, nothing else:`;
       }
     }
 
-    // Fallback icebreakers
+    // Fallback icebreakers personalized to other user
+    const otherName = otherUser.profile?.name || 'you';
+    const otherInterest = otherUser.profile?.interests?.[0] || 'hobbies';
     return [
-      "What's something that made you smile recently?",
-      "If you could master any skill instantly, what would it be?",
-      "What's a topic you could talk about for hours?",
+      `Hey ${otherName}! I noticed you're into ${otherInterest} - what got you started with that?`,
+      `What's something that's made you genuinely happy lately, ${otherName}?`,
+      `If we could hang out and do anything together, what would be fun?`,
     ];
   } catch (error) {
     console.error('Icebreaker generation error:', error);
+    const otherName = otherUser.profile?.name || 'you';
     return [
-      "What's something that made you smile recently?",
+      `What's something that made you smile recently, ${otherName}?`,
       "If you could master any skill instantly, what would it be?",
       "What's a topic you could talk about for hours?",
     ];
   }
 }
 
-export async function generateTopicPrompt(conversationContext, sharedInterests) {
+// Legacy function for backwards compatibility
+export async function generateIcebreakers(user1Profile, user2Profile, sharedInterests) {
+  return generateIcebreakersForUser(user1Profile, user2Profile, sharedInterests);
+}
+
+export async function generateTopicPrompt(conversationContext, sharedInterests, user1Name, user2Name) {
   try {
-    const prompt = `The conversation between two users has gone quiet. Generate a single engaging topic prompt or question to revive the conversation.
+    const prompt = `The conversation between ${user1Name || 'two users'} and ${user2Name || 'their connection'} has gone quiet. Generate a single engaging topic prompt or question to revive the conversation.
 
 Recent context: ${conversationContext || 'New conversation'}
 Shared interests: ${sharedInterests?.join(', ') || 'Various topics'}
 
-Generate ONE short, casual conversation prompt. Just the prompt text, nothing else.`;
+Generate ONE short, casual conversation prompt that:
+- Feels natural and specific
+- Relates to their interests if possible
+- Is fun or thought-provoking
+- Isn't a generic question
+
+Just the prompt text, nothing else.`;
 
     const response = await getClient().messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 100,
+      temperature: 0.9,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -210,6 +280,7 @@ Return ONLY the JSON object, no other text.`;
 export default {
   generateCompanionResponse,
   generateIcebreakers,
+  generateIcebreakersForUser,
   generateTopicPrompt,
   analyzePersonality,
 };

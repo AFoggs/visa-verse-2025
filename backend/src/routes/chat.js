@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDb } from '../config/firebase.js';
-import { generateIcebreakers, generateTopicPrompt } from '../services/claude.js';
+import { generateIcebreakersForUser, generateTopicPrompt } from '../services/claude.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -116,10 +116,11 @@ router.post('/:matchId/message', async (req, res) => {
   }
 });
 
-// Get AI icebreakers
+// Get AI icebreakers (per-user, independent for each participant)
 router.get('/:matchId/icebreakers', async (req, res) => {
   try {
     const { matchId } = req.params;
+    const { refresh } = req.query; // Optional: force regenerate
     const db = getDb();
 
     // Verify user is part of this match
@@ -133,37 +134,41 @@ router.get('/:matchId/icebreakers', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Check if icebreakers already generated
+    const currentUserId = req.user.uid;
+    const otherUserId = matchData.user1Id === currentUserId ? matchData.user2Id : matchData.user1Id;
+    const userKey = `icebreakers_${currentUserId}`; // Store icebreakers per-user
+
+    // Check if icebreakers already generated for this user
     const convDoc = await db.collection('conversations').doc(matchId).get();
-    if (convDoc.exists && convDoc.data().aiSuggestions?.icebreakers?.length > 0) {
-      return res.json({ icebreakers: convDoc.data().aiSuggestions.icebreakers });
+    if (!refresh && convDoc.exists && convDoc.data().aiSuggestions?.[userKey]?.length > 0) {
+      return res.json({ icebreakers: convDoc.data().aiSuggestions[userKey] });
     }
 
     // Get user profiles
-    const user1Doc = await db.collection('users').doc(matchData.user1Id).get();
-    const user2Doc = await db.collection('users').doc(matchData.user2Id).get();
+    const currentUserDoc = await db.collection('users').doc(currentUserId).get();
+    const otherUserDoc = await db.collection('users').doc(otherUserId).get();
 
-    const user1Profile = user1Doc.data() || {};
-    const user2Profile = user2Doc.data() || {};
+    const currentUserProfile = currentUserDoc.data() || {};
+    const otherUserProfile = otherUserDoc.data() || {};
 
-    // Generate icebreakers
-    const icebreakers = await generateIcebreakers(
-      user1Profile,
-      user2Profile,
+    // Generate icebreakers personalized for THIS user to ask the other
+    const icebreakers = await generateIcebreakersForUser(
+      currentUserProfile,
+      otherUserProfile,
       matchData.sharedInterests
     );
 
-    // Store icebreakers
+    // Store icebreakers for this specific user
     if (convDoc.exists) {
       await db.collection('conversations').doc(matchId).update({
-        'aiSuggestions.icebreakers': icebreakers,
+        [`aiSuggestions.${userKey}`]: icebreakers,
       });
     } else {
       await db.collection('conversations').doc(matchId).set({
         conversationId: matchId,
         participants: [matchData.user1Id, matchData.user2Id],
         messages: [],
-        aiSuggestions: { icebreakers },
+        aiSuggestions: { [userKey]: icebreakers },
         createdAt: new Date(),
         updatedAt: new Date(),
       });
