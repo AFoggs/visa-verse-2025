@@ -107,6 +107,20 @@ router.post('/:matchId/message', async (req, res) => {
         roomId: matchId,
         ...message,
       });
+
+      // Also emit global notification to the other user
+      const otherUserId = matchData.user1Id === req.user.uid ? matchData.user2Id : matchData.user1Id;
+      const senderDoc = await db.collection('users').doc(req.user.uid).get();
+      const senderName = senderDoc.exists ? senderDoc.data().profile?.name || 'Someone' : 'Someone';
+
+      io.to(`user_${otherUserId}`).emit('global_message', {
+        roomId: matchId,
+        senderId: req.user.uid,
+        senderName,
+        content,
+        type,
+        timestamp: message.timestamp,
+      });
     }
 
     res.json({ message });

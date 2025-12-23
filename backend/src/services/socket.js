@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const connectedUsers = new Map();
 const roomUsers = new Map();
+const userSockets = new Map(); // Map userId to socket instances for global notifications
 
 export function setupSocketHandlers(io) {
   io.on('connection', (socket) => {
@@ -11,6 +12,13 @@ export function setupSocketHandlers(io) {
 
     // Store user connection
     connectedUsers.set(userId, socket.id);
+    userSockets.set(userId, socket);
+
+    // Join user-specific room for global notifications
+    socket.on('join_user_room', ({ userId: uid }) => {
+      socket.join(`user_${uid}`);
+      console.log(`User ${uid} joined their notification room`);
+    });
 
     // Join a chat room
     socket.on('join_room', ({ roomId, userId: uid }) => {
@@ -51,6 +59,35 @@ export function setupSocketHandlers(io) {
         ...message,
       });
 
+      // Get sender name and other participant for global notifications
+      try {
+        const db = getDb();
+        const [matchDoc, senderDoc] = await Promise.all([
+          db.collection('matches').doc(roomId).get(),
+          db.collection('users').doc(senderId).get(),
+        ]);
+
+        if (matchDoc.exists) {
+          const matchData = matchDoc.data();
+          const senderName = senderDoc.exists ? senderDoc.data().profile?.name || 'Someone' : 'Someone';
+
+          // Find the other participant
+          const otherUserId = matchData.user1Id === senderId ? matchData.user2Id : matchData.user1Id;
+
+          // Emit global notification to the other user
+          io.to(`user_${otherUserId}`).emit('global_message', {
+            roomId,
+            senderId,
+            senderName,
+            content,
+            type: type || 'text',
+            timestamp: message.timestamp,
+          });
+        }
+      } catch (notifyError) {
+        console.error('Error sending global notification:', notifyError);
+      }
+
       // Save to database
       try {
         const db = getDb();
@@ -87,6 +124,7 @@ export function setupSocketHandlers(io) {
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${userId}`);
       connectedUsers.delete(userId);
+      userSockets.delete(userId);
 
       // Remove from all rooms
       roomUsers.forEach((users, roomId) => {

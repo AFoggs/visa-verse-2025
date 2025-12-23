@@ -34,6 +34,8 @@ export function SocketProvider({ children }) {
     newSocket.on('connect', () => {
       console.log('Socket connected');
       setConnected(true);
+      // Join user-specific room for global notifications
+      newSocket.emit('join_user_room', { userId: user.uid });
     });
 
     newSocket.on('disconnect', () => {

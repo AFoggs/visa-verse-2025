@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { useNotifications } from '../context/NotificationContext';
 import { chatApi, matchesApi, gamesApi } from '../services/api';
 
 function Chat() {
@@ -28,6 +29,7 @@ function Chat() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { socket, connected, joinRoom, leaveRoom, startTyping, stopTyping } = useSocket();
+  const { setActiveChat, clearActiveChat } = useNotifications();
 
   const [match, setMatch] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -89,6 +91,17 @@ function Chat() {
       };
     }
   }, [connected, matchId, joinRoom, leaveRoom]);
+
+  // Mark messages as read when entering/leaving chat
+  useEffect(() => {
+    if (matchId) {
+      setActiveChat(matchId);
+    }
+
+    return () => {
+      clearActiveChat();
+    };
+  }, [matchId, setActiveChat, clearActiveChat]);
 
   // Socket message handlers
   useEffect(() => {

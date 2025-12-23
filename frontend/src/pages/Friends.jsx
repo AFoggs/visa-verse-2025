@@ -12,8 +12,10 @@ import {
   Send,
   Check,
   X,
+  Bell,
 } from 'lucide-react';
 import { userApi, matchesApi } from '../services/api';
+import { useNotifications } from '../context/NotificationContext';
 
 function Friends() {
   const [activeTab, setActiveTab] = useState('connections');
@@ -24,6 +26,7 @@ function Friends() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
+  const { getUnreadCount, totalUnread, permissionStatus, requestPermission } = useNotifications();
 
   const loadData = async () => {
     try {
@@ -108,7 +111,28 @@ function Friends() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Your People</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Your People</h1>
+        {permissionStatus === 'default' && (
+          <button
+            onClick={requestPermission}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-400/20 text-primary-400 rounded-lg hover:bg-primary-400/30 transition-colors text-sm"
+          >
+            <Bell size={18} />
+            Enable Notifications
+          </button>
+        )}
+      </div>
+
+      {/* Unread Messages Banner */}
+      {totalUnread > 0 && (
+        <div className="mb-4 p-4 bg-primary-400/10 border border-primary-400/30 rounded-xl flex items-center gap-3">
+          <MessageCircle className="text-primary-400" size={24} />
+          <p className="text-primary-400 font-medium">
+            You have {totalUnread} unread message{totalUnread !== 1 ? 's' : ''}
+          </p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -329,8 +353,13 @@ function Friends() {
                 {!isRequest && !isSent && (
                   <Link
                     to={`/chat/${item.matchId}`}
-                    className="flex flex-col items-end"
+                    className="flex flex-col items-end relative"
                   >
+                    {getUnreadCount(item.matchId) > 0 && (
+                      <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1.5 bg-error-400 rounded-full text-xs flex items-center justify-center text-white font-medium animate-pulse">
+                        {getUnreadCount(item.matchId) > 99 ? '99+' : getUnreadCount(item.matchId)}
+                      </span>
+                    )}
                     <div className="flex items-center gap-1 text-success-400 font-medium">
                       <Zap size={16} />
                       {item.compatibilityScore || 0}%

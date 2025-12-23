@@ -7,20 +7,23 @@ import {
   User,
   Settings,
   LogOut,
-  Sparkles
+  Sparkles,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { motion } from 'framer-motion';
+import { useNotifications } from '../../context/NotificationContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 function MainLayout() {
   const { logout, userProfile } = useAuth();
   const location = useLocation();
+  const { totalUnread, permissionStatus, requestPermission } = useNotifications();
 
   const navItems = [
     { path: '/dashboard', icon: Home, label: 'Home' },
     { path: '/companion', icon: Sparkles, label: 'Companion' },
     { path: '/discover', icon: Compass, label: 'Discover' },
-    { path: '/friends', icon: Users, label: 'Friends' },
+    { path: '/friends', icon: Users, label: 'Friends', showBadge: true },
     { path: '/profile', icon: User, label: 'Profile' },
   ];
 
@@ -52,7 +55,7 @@ function MainLayout() {
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+                  `flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 relative ${
                     isActive
                       ? 'bg-primary-400/20 text-primary-400'
                       : 'text-dark-200 hover:text-white hover:bg-dark-600'
@@ -61,6 +64,11 @@ function MainLayout() {
               >
                 <item.icon size={20} />
                 <span>{item.label}</span>
+                {item.showBadge && totalUnread > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1.5 bg-error-400 rounded-full text-xs flex items-center justify-center text-white font-medium animate-pulse">
+                    {totalUnread > 99 ? '99+' : totalUnread}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
@@ -70,6 +78,26 @@ function MainLayout() {
             <span className="text-dark-200 text-sm">
               {userProfile?.profile?.name || 'User'}
             </span>
+            {permissionStatus === 'default' && (
+              <button
+                onClick={requestPermission}
+                className="p-2 rounded-lg text-dark-300 hover:text-primary-400 hover:bg-dark-600 transition-all"
+                title="Enable notifications"
+              >
+                <Bell size={20} />
+              </button>
+            )}
+            {permissionStatus === 'granted' && totalUnread > 0 && (
+              <NavLink
+                to="/friends"
+                className="p-2 rounded-lg text-primary-400 hover:bg-dark-600 transition-all relative"
+              >
+                <Bell size={20} />
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-error-400 rounded-full text-xs flex items-center justify-center text-white font-medium">
+                  {totalUnread > 99 ? '99+' : totalUnread}
+                </span>
+              </NavLink>
+            )}
             <NavLink
               to="/settings"
               className="p-2 rounded-lg text-dark-200 hover:text-white hover:bg-dark-600 transition-all"
@@ -107,7 +135,7 @@ function MainLayout() {
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all duration-200 ${
+                `flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all duration-200 relative ${
                   isActive
                     ? 'text-primary-400'
                     : 'text-dark-300 hover:text-white'
@@ -119,8 +147,14 @@ function MainLayout() {
                   <motion.div
                     animate={isActive ? { scale: 1.1 } : { scale: 1 }}
                     transition={{ duration: 0.2 }}
+                    className="relative"
                   >
                     <item.icon size={24} />
+                    {item.showBadge && totalUnread > 0 && (
+                      <span className="absolute -top-2 -right-2 min-w-4 h-4 px-1 bg-error-400 rounded-full text-xs flex items-center justify-center text-white font-medium">
+                        {totalUnread > 9 ? '9+' : totalUnread}
+                      </span>
+                    )}
                   </motion.div>
                   <span className="text-xs">{item.label}</span>
                 </>
