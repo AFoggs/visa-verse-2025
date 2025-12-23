@@ -20,7 +20,123 @@ router.get('/me', async (req, res) => {
   }
 });
 
-// Get user profile by ID
+// Get friends list (must be before /:userId route)
+router.get('/friends', async (req, res) => {
+  try {
+    const db = getDb();
+    console.log('Fetching friends for user:', req.user.uid);
+
+    // Query matches where current user is user1
+    const matches1 = await db.collection('matches')
+      .where('user1Id', '==', req.user.uid)
+      .where('status', '==', 'friends')
+      .get();
+
+    // Query matches where current user is user2
+    const matches2 = await db.collection('matches')
+      .where('user2Id', '==', req.user.uid)
+      .where('status', '==', 'friends')
+      .get();
+
+    console.log('Found friend matches:', { asUser1: matches1.size, asUser2: matches2.size });
+
+    const friends = [];
+
+    matches1.forEach(doc => {
+      const match = doc.data();
+      friends.push({
+        matchId: doc.id,
+        otherUser: {
+          userId: match.user2Id,
+          ...match.user2Profile,
+        },
+        compatibilityScore: match.compatibilityScore,
+        sharedInterests: match.sharedInterests,
+        connectionMetrics: match.connectionMetrics,
+      });
+    });
+
+    matches2.forEach(doc => {
+      const match = doc.data();
+      friends.push({
+        matchId: doc.id,
+        otherUser: {
+          userId: match.user1Id,
+          ...match.user1Profile,
+        },
+        compatibilityScore: match.compatibilityScore,
+        sharedInterests: match.sharedInterests,
+        connectionMetrics: match.connectionMetrics,
+      });
+    });
+
+    console.log('Total friends:', friends.length);
+    res.json({ friends });
+  } catch (error) {
+    console.error('Get friends error:', error);
+    res.status(500).json({ error: 'Failed to get friends' });
+  }
+});
+
+// Get connections list (must be before /:userId route)
+router.get('/connections', async (req, res) => {
+  try {
+    const db = getDb();
+    console.log('Fetching connections for user:', req.user.uid);
+
+    // Query matches where current user is user1
+    const matches1 = await db.collection('matches')
+      .where('user1Id', '==', req.user.uid)
+      .where('status', '==', 'connected')
+      .get();
+
+    // Query matches where current user is user2
+    const matches2 = await db.collection('matches')
+      .where('user2Id', '==', req.user.uid)
+      .where('status', '==', 'connected')
+      .get();
+
+    console.log('Found matches:', { asUser1: matches1.size, asUser2: matches2.size });
+
+    const connections = [];
+
+    matches1.forEach(doc => {
+      const match = doc.data();
+      connections.push({
+        matchId: doc.id,
+        otherUser: {
+          userId: match.user2Id,
+          ...match.user2Profile,
+        },
+        compatibilityScore: match.compatibilityScore,
+        sharedInterests: match.sharedInterests,
+        connectionMetrics: match.connectionMetrics,
+      });
+    });
+
+    matches2.forEach(doc => {
+      const match = doc.data();
+      connections.push({
+        matchId: doc.id,
+        otherUser: {
+          userId: match.user1Id,
+          ...match.user1Profile,
+        },
+        compatibilityScore: match.compatibilityScore,
+        sharedInterests: match.sharedInterests,
+        connectionMetrics: match.connectionMetrics,
+      });
+    });
+
+    console.log('Total connections:', connections.length);
+    res.json({ connections });
+  } catch (error) {
+    console.error('Get connections error:', error);
+    res.status(500).json({ error: 'Failed to get connections' });
+  }
+});
+
+// Get user profile by ID (must be AFTER specific routes like /friends, /connections)
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -90,122 +206,6 @@ router.put('/profile', async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
-  }
-});
-
-// Get friends list
-router.get('/friends', async (req, res) => {
-  try {
-    const db = getDb();
-    console.log('Fetching friends for user:', req.user.uid);
-
-    // Query matches where current user is user1
-    const matches1 = await db.collection('matches')
-      .where('user1Id', '==', req.user.uid)
-      .where('status', '==', 'friends')
-      .get();
-
-    // Query matches where current user is user2
-    const matches2 = await db.collection('matches')
-      .where('user2Id', '==', req.user.uid)
-      .where('status', '==', 'friends')
-      .get();
-
-    console.log('Found friend matches:', { asUser1: matches1.size, asUser2: matches2.size });
-
-    const friends = [];
-
-    matches1.forEach(doc => {
-      const match = doc.data();
-      friends.push({
-        matchId: doc.id,
-        otherUser: {
-          userId: match.user2Id,
-          ...match.user2Profile,
-        },
-        compatibilityScore: match.compatibilityScore,
-        sharedInterests: match.sharedInterests,
-        connectionMetrics: match.connectionMetrics,
-      });
-    });
-
-    matches2.forEach(doc => {
-      const match = doc.data();
-      friends.push({
-        matchId: doc.id,
-        otherUser: {
-          userId: match.user1Id,
-          ...match.user1Profile,
-        },
-        compatibilityScore: match.compatibilityScore,
-        sharedInterests: match.sharedInterests,
-        connectionMetrics: match.connectionMetrics,
-      });
-    });
-
-    console.log('Total friends:', friends.length);
-    res.json({ friends });
-  } catch (error) {
-    console.error('Get friends error:', error);
-    res.status(500).json({ error: 'Failed to get friends' });
-  }
-});
-
-// Get connections list
-router.get('/connections', async (req, res) => {
-  try {
-    const db = getDb();
-    console.log('Fetching connections for user:', req.user.uid);
-
-    // Query matches where current user is user1
-    const matches1 = await db.collection('matches')
-      .where('user1Id', '==', req.user.uid)
-      .where('status', '==', 'connected')
-      .get();
-
-    // Query matches where current user is user2
-    const matches2 = await db.collection('matches')
-      .where('user2Id', '==', req.user.uid)
-      .where('status', '==', 'connected')
-      .get();
-
-    console.log('Found matches:', { asUser1: matches1.size, asUser2: matches2.size });
-
-    const connections = [];
-
-    matches1.forEach(doc => {
-      const match = doc.data();
-      connections.push({
-        matchId: doc.id,
-        otherUser: {
-          userId: match.user2Id,
-          ...match.user2Profile,
-        },
-        compatibilityScore: match.compatibilityScore,
-        sharedInterests: match.sharedInterests,
-        connectionMetrics: match.connectionMetrics,
-      });
-    });
-
-    matches2.forEach(doc => {
-      const match = doc.data();
-      connections.push({
-        matchId: doc.id,
-        otherUser: {
-          userId: match.user1Id,
-          ...match.user1Profile,
-        },
-        compatibilityScore: match.compatibilityScore,
-        sharedInterests: match.sharedInterests,
-        connectionMetrics: match.connectionMetrics,
-      });
-    });
-
-    console.log('Total connections:', connections.length);
-    res.json({ connections });
-  } catch (error) {
-    console.error('Get connections error:', error);
-    res.status(500).json({ error: 'Failed to get connections' });
   }
 });
 
