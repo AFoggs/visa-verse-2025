@@ -265,6 +265,43 @@ async function clearTestUsers() {
   console.log('\n✓ Cleanup complete!');
 }
 
+async function clearAllMatches() {
+  console.log('Clearing all matches and resetting connections...\n');
+
+  // Delete all matches
+  const matchesSnapshot = await db.collection('matches').get();
+  let matchCount = 0;
+  for (const doc of matchesSnapshot.docs) {
+    await doc.ref.delete();
+    matchCount++;
+  }
+  console.log(`✓ Deleted ${matchCount} matches`);
+
+  // Reset connections for all users
+  const usersSnapshot = await db.collection('users').get();
+  let userCount = 0;
+  for (const doc of usersSnapshot.docs) {
+    await doc.ref.update({
+      'connections.strangers': [],
+      'connections.connections': [],
+      'connections.friends': [],
+    });
+    userCount++;
+  }
+  console.log(`✓ Reset connections for ${userCount} users`);
+
+  // Delete all conversations
+  const convsSnapshot = await db.collection('conversations').get();
+  let convCount = 0;
+  for (const doc of convsSnapshot.docs) {
+    await doc.ref.delete();
+    convCount++;
+  }
+  console.log(`✓ Deleted ${convCount} conversations`);
+
+  console.log('\n✓ All matches cleared! Discovery should show all users now.');
+}
+
 // Main
 const command = process.argv[2];
 
@@ -276,6 +313,8 @@ if (command === 'clear') {
   clearTestUsers()
     .then(() => seedUsers())
     .then(() => process.exit(0));
+} else if (command === 'clear-matches') {
+  clearAllMatches().then(() => process.exit(0));
 } else {
   seedUsers().then(() => process.exit(0));
 }
