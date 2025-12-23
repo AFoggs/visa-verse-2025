@@ -1,8 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Lazy initialization to ensure env vars are loaded
+let anthropic = null;
+
+function getClient() {
+  if (!anthropic) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY environment variable is not set');
+    }
+    anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+  }
+  return anthropic;
+}
 
 const COMPANION_SYSTEM_PROMPT = `You are an AI companion in 3Degrees, a platform that helps people make meaningful connections. Your role is to:
 
@@ -47,7 +58,7 @@ Current interests: ${interests.join(', ') || 'None set yet'}
       content: message,
     });
 
-    const response = await anthropic.messages.create({
+    const response = await getClient().messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 500,
       system: COMPANION_SYSTEM_PROMPT + contextPrompt,
@@ -98,7 +109,7 @@ Generate exactly 3 icebreaker questions that:
 
 Return ONLY a JSON array of 3 strings, nothing else:`;
 
-    const response = await anthropic.messages.create({
+    const response = await getClient().messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
@@ -144,7 +155,7 @@ Shared interests: ${sharedInterests?.join(', ') || 'Various topics'}
 
 Generate ONE short, casual conversation prompt. Just the prompt text, nothing else.`;
 
-    const response = await anthropic.messages.create({
+    const response = await getClient().messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 100,
       messages: [{ role: 'user', content: prompt }],
@@ -182,7 +193,7 @@ Return a JSON object with these fields:
 
 Return ONLY the JSON object, no other text.`;
 
-    const response = await anthropic.messages.create({
+    const response = await getClient().messages.create({
       model: 'claude-3-5-sonnet-20241022',
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
