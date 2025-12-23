@@ -49,6 +49,7 @@ function Discover() {
   const currentMatch = matches[currentIndex];
 
   const [successMessage, setSuccessMessage] = useState('');
+  const [messageType, setMessageType] = useState('success'); // 'success' | 'pending'
 
   const handleConnect = async () => {
     if (!currentMatch || actionLoading) return;
@@ -59,13 +60,26 @@ function Discover() {
     try {
       const result = await matchesApi.connect(currentMatch.userId);
       console.log('Connect result:', result);
-      setSuccessMessage(`Connected with ${currentMatch.name}!`);
+
+      if (result.mutual) {
+        // Both users connected - it's a match!
+        setMessageType('success');
+        setSuccessMessage(`It's a match! You and ${currentMatch.name} can now chat.`);
+      } else if (result.pending) {
+        // Request sent, waiting for other user
+        setMessageType('pending');
+        setSuccessMessage(result.message || `Request sent to ${currentMatch.name}. They need to connect back!`);
+      } else {
+        setMessageType('success');
+        setSuccessMessage(`Connected with ${currentMatch.name}!`);
+      }
+
       setTimeout(() => {
         setSuccessMessage('');
         nextMatch();
         setDirection(null);
         setActionLoading(false);
-      }, 1500);
+      }, 2000);
     } catch (error) {
       console.error('Connect error:', error);
       alert(`Failed to connect: ${error.message}`);
@@ -310,12 +324,16 @@ function Discover() {
         </motion.div>
       )}
 
-      {/* Success Message */}
+      {/* Success/Pending Message */}
       {successMessage && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-4 p-4 bg-success-400/20 border border-success-400/30 rounded-xl text-center text-success-400 font-medium"
+          className={`mt-4 p-4 rounded-xl text-center font-medium ${
+            messageType === 'success'
+              ? 'bg-success-400/20 border border-success-400/30 text-success-400'
+              : 'bg-primary-400/20 border border-primary-400/30 text-primary-400'
+          }`}
         >
           {successMessage}
         </motion.div>

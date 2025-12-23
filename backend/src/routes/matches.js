@@ -94,7 +94,7 @@ router.get('/:matchId', async (req, res) => {
   }
 });
 
-// Connect with a user
+// Connect with a user (requires mutual connection)
 router.post('/connect', async (req, res) => {
   try {
     const { userId } = req.body;
@@ -117,6 +117,61 @@ router.post('/connect', async (req, res) => {
     const currentUser = { userId: req.user.uid, ...currentUserDoc.data() };
     const otherUser = { userId, ...otherUserDoc.data() };
 
+    // Check if a pending match already exists (other user already requested to connect)
+    // Check both directions since user1Id/user2Id order depends on who initiated first
+    const existingMatch1 = await db.collection('matches')
+      .where('user1Id', '==', userId)
+      .where('user2Id', '==', req.user.uid)
+      .where('status', '==', 'pending')
+      .get();
+
+    const existingMatch2 = await db.collection('matches')
+      .where('user1Id', '==', req.user.uid)
+      .where('user2Id', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
+
+    // If other user already sent a connection request, complete the connection
+    if (!existingMatch1.empty) {
+      const matchDoc = existingMatch1.docs[0];
+      const matchData = matchDoc.data();
+
+      // Upgrade to connected
+      await matchDoc.ref.update({
+        status: 'connected',
+        'connectionRequest.user2Accepted': true,
+        connectedAt: new Date(),
+      });
+
+      // Update both users' connections
+      const currentConnections = currentUser.connections?.connections || [];
+      const otherConnections = otherUser.connections?.connections || [];
+
+      await db.collection('users').doc(req.user.uid).update({
+        'connections.connections': [...currentConnections, userId],
+      });
+
+      await db.collection('users').doc(userId).update({
+        'connections.connections': [...otherConnections, req.user.uid],
+      });
+
+      console.log('Mutual connection complete:', { matchId: matchDoc.id, user1: userId, user2: req.user.uid });
+      return res.json({
+        match: { ...matchData, status: 'connected' },
+        message: 'Connection complete! You can now chat.',
+        mutual: true
+      });
+    }
+
+    // Check if current user already sent a request
+    if (!existingMatch2.empty) {
+      return res.json({
+        match: existingMatch2.docs[0].data(),
+        message: 'Connection request already sent. Waiting for them to connect back.',
+        pending: true
+      });
+    }
+
     // Calculate compatibility
     const compatibility = calculateCompatibility(currentUser, otherUser);
 
@@ -124,7 +179,7 @@ router.post('/connect', async (req, res) => {
       return res.status(400).json({ error: 'Users are not compatible' });
     }
 
-    // Create match
+    // Create new pending match (one-way request)
     const matchId = uuidv4();
     const matchData = {
       matchId,
@@ -142,7 +197,11 @@ router.post('/connect', async (req, res) => {
       },
       compatibilityScore: compatibility.score,
       sharedInterests: compatibility.sharedInterests,
-      status: 'connected',
+      status: 'pending',
+      connectionRequest: {
+        initiatedBy: req.user.uid,
+        user2Accepted: false,
+      },
       connectionMetrics: {
         totalChatTime: 0,
         sessionCount: 0,
@@ -158,20 +217,12 @@ router.post('/connect', async (req, res) => {
 
     await db.collection('matches').doc(matchId).set(matchData);
 
-    // Update both users' connections
-    const currentConnections = currentUser.connections?.connections || [];
-    const otherConnections = otherUser.connections?.connections || [];
-
-    await db.collection('users').doc(req.user.uid).update({
-      'connections.connections': [...currentConnections, userId],
+    console.log('Connection request sent:', { matchId, from: req.user.uid, to: userId });
+    res.json({
+      match: matchData,
+      message: 'Connection request sent! They need to connect with you too.',
+      pending: true
     });
-
-    await db.collection('users').doc(userId).update({
-      'connections.connections': [...otherConnections, req.user.uid],
-    });
-
-    console.log('Connect success:', { matchId, user1: req.user.uid, user2: userId });
-    res.json({ match: matchData });
   } catch (error) {
     console.error('Connect error:', error);
     res.status(500).json({ error: 'Failed to connect', details: error.message });

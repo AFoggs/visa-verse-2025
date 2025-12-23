@@ -191,6 +191,23 @@ export async function getSuggestedMatches(userId, limit = 10) {
       ...(currentUser.connections?.friends || []),
     ]);
 
+    // Get existing matches (pending or connected) to exclude
+    const matches1 = await db.collection('matches')
+      .where('user1Id', '==', userId)
+      .get();
+    const matches2 = await db.collection('matches')
+      .where('user2Id', '==', userId)
+      .get();
+
+    matches1.forEach(doc => {
+      const match = doc.data();
+      existingConnections.add(match.user2Id);
+    });
+    matches2.forEach(doc => {
+      const match = doc.data();
+      existingConnections.add(match.user1Id);
+    });
+
     // Get all potential matches
     const usersSnapshot = await db.collection('users')
       .where('onboardingComplete', '==', true)
@@ -202,7 +219,7 @@ export async function getSuggestedMatches(userId, limit = 10) {
     usersSnapshot.forEach(doc => {
       const userData = { userId: doc.id, ...doc.data() };
 
-      // Skip self and existing connections
+      // Skip self and existing connections/matches
       if (userData.userId === userId || existingConnections.has(userData.userId)) {
         return;
       }
