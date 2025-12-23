@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../services/api';
+import LocationSearch from '../components/LocationSearch';
 
 const INTERESTS = [
   'Technology', 'Gaming', 'Music', 'Movies', 'Travel', 'Fitness',
@@ -166,34 +167,7 @@ function Profile() {
             </h1>
           )}
 
-          {editing ? (
-            <div className="flex gap-2 max-w-xs mx-auto mt-2">
-              <input
-                type="text"
-                value={editData.location?.city || ''}
-                onChange={(e) =>
-                  setEditData({
-                    ...editData,
-                    location: { ...editData.location, city: e.target.value },
-                  })
-                }
-                placeholder="City"
-                className="input text-sm flex-1"
-              />
-              <input
-                type="text"
-                value={editData.location?.country || ''}
-                onChange={(e) =>
-                  setEditData({
-                    ...editData,
-                    location: { ...editData.location, country: e.target.value },
-                  })
-                }
-                placeholder="Country"
-                className="input text-sm flex-1"
-              />
-            </div>
-          ) : (
+          {!editing && (
             <p className="text-dark-300 flex items-center justify-center gap-1">
               <MapPin size={16} />
               {displayProfile?.location?.city}, {displayProfile?.location?.country}
@@ -221,6 +195,21 @@ function Profile() {
                 {displayExtended?.bio || 'No bio yet'}
               </p>
             )}
+          </div>
+        )}
+
+        {/* Location (Editable) */}
+        {editing && (
+          <div className="p-6 border-b border-dark-600">
+            <h3 className="text-sm text-dark-300 mb-3 flex items-center gap-2">
+              <MapPin size={16} />
+              Location
+            </h3>
+            <LocationSearch
+              value={editData.location || { city: '', state: '', country: '', displayPreference: 'city' }}
+              onChange={(location) => setEditData({ ...editData, location })}
+              placeholder="Search for your city..."
+            />
           </div>
         )}
 

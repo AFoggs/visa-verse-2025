@@ -16,6 +16,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import LocationSearch from '../components/LocationSearch';
 
 const INTERESTS = [
   'Technology', 'Gaming', 'Music', 'Movies', 'Travel', 'Fitness',
@@ -267,88 +268,11 @@ function Onboarding() {
                   <p className="text-dark-300">This helps us find connections near you</p>
                 </div>
 
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm text-dark-200 mb-2">City</label>
-                    <input
-                      type="text"
-                      value={profile.location.city}
-                      onChange={(e) =>
-                        setProfile({
-                          ...profile,
-                          location: { ...profile.location, city: e.target.value },
-                        })
-                      }
-                      placeholder="e.g., New York"
-                      className="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-dark-200 mb-2">State/Region (optional)</label>
-                    <input
-                      type="text"
-                      value={profile.location.state}
-                      onChange={(e) =>
-                        setProfile({
-                          ...profile,
-                          location: { ...profile.location, state: e.target.value },
-                        })
-                      }
-                      placeholder="e.g., New York"
-                      className="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-dark-200 mb-2">Country</label>
-                    <input
-                      type="text"
-                      value={profile.location.country}
-                      onChange={(e) =>
-                        setProfile({
-                          ...profile,
-                          location: { ...profile.location, country: e.target.value },
-                        })
-                      }
-                      placeholder="e.g., United States"
-                      className="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-dark-200 mb-3">
-                      What should others see?
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { value: 'city', label: 'City & Country' },
-                        { value: 'state', label: 'State/Region Only' },
-                        { value: 'country', label: 'Country Only' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() =>
-                            setProfile({
-                              ...profile,
-                              location: { ...profile.location, displayPreference: opt.value },
-                            })
-                          }
-                          className={`p-3 rounded-lg text-sm transition-all ${
-                            profile.location.displayPreference === opt.value
-                              ? 'bg-primary-400/20 border-2 border-primary-400'
-                              : 'bg-dark-600 border-2 border-transparent'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-dark-400 text-xs mt-2">
-                      This controls what location info other users can see on your profile.
-                    </p>
-                  </div>
-                </div>
+                <LocationSearch
+                  value={profile.location}
+                  onChange={(location) => setProfile({ ...profile, location })}
+                  placeholder="Search for your city..."
+                />
               </motion.div>
             )}
 
