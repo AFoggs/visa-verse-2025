@@ -51,6 +51,16 @@ function Discover() {
   const [successMessage, setSuccessMessage] = useState('');
   const [messageType, setMessageType] = useState('success'); // 'success' | 'pending'
 
+  const removeCurrentMatch = () => {
+    // Remove the current user from matches array so they don't appear again
+    const newMatches = matches.filter((_, idx) => idx !== currentIndex);
+    setMatches(newMatches);
+    // Adjust index if we're at the end
+    if (currentIndex >= newMatches.length && newMatches.length > 0) {
+      setCurrentIndex(newMatches.length - 1);
+    }
+  };
+
   const handleConnect = async () => {
     if (!currentMatch || actionLoading) return;
 
@@ -69,6 +79,10 @@ function Discover() {
         // Request sent, waiting for other user
         setMessageType('pending');
         setSuccessMessage(result.message || `Request sent to ${currentMatch.name}. They need to connect back!`);
+      } else if (result.alreadyConnected) {
+        // Already connected - just remove from list
+        setMessageType('success');
+        setSuccessMessage(`You're already connected with ${currentMatch.name}!`);
       } else {
         setMessageType('success');
         setSuccessMessage(`Connected with ${currentMatch.name}!`);
@@ -76,7 +90,7 @@ function Discover() {
 
       setTimeout(() => {
         setSuccessMessage('');
-        nextMatch();
+        removeCurrentMatch(); // Remove from list instead of just moving to next
         setDirection(null);
         setActionLoading(false);
       }, 2000);
@@ -104,7 +118,7 @@ function Discover() {
       setShowFeedback(false);
       setFeedbackReason('');
       setTimeout(() => {
-        nextMatch();
+        removeCurrentMatch(); // Remove from list instead of just moving to next
         setDirection(null);
         setActionLoading(false);
       }, 300);

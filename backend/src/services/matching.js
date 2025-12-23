@@ -199,6 +199,12 @@ export async function getSuggestedMatches(userId, limit = 10) {
       .where('user2Id', '==', userId)
       .get();
 
+    console.log('Excluding from discovery:', {
+      userId,
+      existingMatchesAsUser1: matches1.docs.map(d => ({ id: d.id, user2: d.data().user2Id, status: d.data().status })),
+      existingMatchesAsUser2: matches2.docs.map(d => ({ id: d.id, user1: d.data().user1Id, status: d.data().status })),
+    });
+
     matches1.forEach(doc => {
       const match = doc.data();
       existingConnections.add(match.user2Id);
@@ -207,6 +213,8 @@ export async function getSuggestedMatches(userId, limit = 10) {
       const match = doc.data();
       existingConnections.add(match.user1Id);
     });
+
+    console.log('Total excluded users:', existingConnections.size, [...existingConnections]);
 
     // Get all potential matches
     const usersSnapshot = await db.collection('users')
@@ -221,6 +229,12 @@ export async function getSuggestedMatches(userId, limit = 10) {
 
       // Skip self and existing connections/matches
       if (userData.userId === userId || existingConnections.has(userData.userId)) {
+        return;
+      }
+
+      // Skip users without a valid profile name
+      if (!userData.profile?.name) {
+        console.log('Skipping user without name:', userData.userId);
         return;
       }
 
@@ -246,6 +260,7 @@ export async function getSuggestedMatches(userId, limit = 10) {
     // Sort by compatibility score
     potentialMatches.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
 
+    console.log('Returning potential matches:', potentialMatches.length);
     return potentialMatches.slice(0, limit);
   } catch (error) {
     console.error('Error getting suggested matches:', error);

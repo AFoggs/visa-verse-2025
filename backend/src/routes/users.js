@@ -274,6 +274,40 @@ router.put('/profile', async (req, res) => {
 
     await db.collection('users').doc(req.user.uid).update(sanitizedUpdates);
 
+    // Also update stored profile data in all matches
+    if (updates.profile) {
+      const profileSnapshot = {
+        name: updates.profile.name,
+        age: updates.profile.age,
+        location: updates.profile.location,
+      };
+
+      // Update matches where user is user1
+      const matches1 = await db.collection('matches')
+        .where('user1Id', '==', req.user.uid)
+        .get();
+
+      // Update matches where user is user2
+      const matches2 = await db.collection('matches')
+        .where('user2Id', '==', req.user.uid)
+        .get();
+
+      const batch = db.batch();
+
+      matches1.forEach(doc => {
+        batch.update(doc.ref, { user1Profile: profileSnapshot });
+      });
+
+      matches2.forEach(doc => {
+        batch.update(doc.ref, { user2Profile: profileSnapshot });
+      });
+
+      if (matches1.size > 0 || matches2.size > 0) {
+        await batch.commit();
+        console.log(`Updated profile in ${matches1.size + matches2.size} matches`);
+      }
+    }
+
     const updatedDoc = await db.collection('users').doc(req.user.uid).get();
 
     res.json({ user: updatedDoc.data() });
