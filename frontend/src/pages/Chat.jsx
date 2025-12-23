@@ -14,6 +14,10 @@ import {
   X,
   Info,
   Zap,
+  RefreshCw,
+  Dice5,
+  HelpCircle,
+  MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -34,8 +38,10 @@ function Chat() {
   const [icebreakers, setIcebreakers] = useState([]);
   const [showMenu, setShowMenu] = useState(false);
   const [showRating, setShowRating] = useState(false);
+  const [showGames, setShowGames] = useState(false);
   const [rating, setRating] = useState(0);
   const [listening, setListening] = useState(false);
+  const [loadingIcebreakers, setLoadingIcebreakers] = useState(false);
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -230,10 +236,34 @@ function Chat() {
     try {
       await gamesApi.startGame(matchId, gameType);
       setShowMenu(false);
+      setShowGames(false);
+      // Send a system message about game start
+      const gameName = gameType === 'two_truths' ? 'Two Truths & a Lie' :
+                       gameType === 'would_you_rather' ? 'Would You Rather' :
+                       gameType === '20_questions' ? '20 Questions' : gameType;
+      await chatApi.sendMessage(matchId, `🎮 Started a game: ${gameName}! Let's play!`, 'game-start');
     } catch (error) {
       console.error('Start game error:', error);
     }
   };
+
+  const refreshIcebreakers = async () => {
+    setLoadingIcebreakers(true);
+    try {
+      const data = await chatApi.getIcebreakers(matchId + '?refresh=true');
+      setIcebreakers(data.icebreakers || []);
+    } catch (error) {
+      console.error('Refresh icebreakers error:', error);
+    } finally {
+      setLoadingIcebreakers(false);
+    }
+  };
+
+  const GAMES = [
+    { id: 'two_truths', name: 'Two Truths & a Lie', icon: '🎭', desc: 'Guess which statement is false' },
+    { id: 'would_you_rather', name: 'Would You Rather', icon: '🤔', desc: 'Make impossible choices' },
+    { id: '20_questions', name: '20 Questions', icon: '❓', desc: 'Guess what they\'re thinking' },
+  ];
 
   const canRequestFriend = useCallback(() => {
     if (!match) return false;
@@ -335,23 +365,37 @@ function Chat() {
       </div>
 
       {/* Icebreakers */}
-      {icebreakers.length > 0 && messages.length === 0 && (
+      {(icebreakers.length > 0 || messages.length === 0) && (
         <div className="bg-dark-700/30 px-4 py-3 border-b border-dark-600">
-          <div className="flex items-center gap-2 mb-2 text-sm text-dark-300">
-            <Sparkles size={16} className="text-accent-400" />
-            AI Conversation Starters
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-sm text-dark-300">
+              <Sparkles size={16} className="text-accent-400" />
+              AI Conversation Starters
+            </div>
+            <button
+              onClick={refreshIcebreakers}
+              disabled={loadingIcebreakers}
+              className="btn-ghost p-1.5 text-dark-400 hover:text-accent-400"
+              title="Get new icebreakers"
+            >
+              <RefreshCw size={16} className={loadingIcebreakers ? 'animate-spin' : ''} />
+            </button>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {icebreakers.map((icebreaker, index) => (
-              <button
-                key={index}
-                onClick={() => sendIcebreaker(icebreaker)}
-                className="flex-shrink-0 px-4 py-2 bg-accent-400/20 text-accent-300 rounded-full text-sm hover:bg-accent-400/30 transition-colors"
-              >
-                {icebreaker}
-              </button>
-            ))}
-          </div>
+          {icebreakers.length > 0 ? (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {icebreakers.map((icebreaker, index) => (
+                <button
+                  key={index}
+                  onClick={() => sendIcebreaker(icebreaker)}
+                  className="flex-shrink-0 px-4 py-2 bg-accent-400/20 text-accent-300 rounded-full text-sm hover:bg-accent-400/30 transition-colors"
+                >
+                  {icebreaker}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-dark-400 text-sm">Click refresh to get personalized icebreakers!</p>
+          )}
         </div>
       )}
 
@@ -431,9 +475,58 @@ function Chat() {
         </div>
       </div>
 
+      {/* Games Panel */}
+      <AnimatePresence>
+        {showGames && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-dark-700/50 border-t border-dark-600 overflow-hidden"
+          >
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Gamepad2 size={18} className="text-success-400" />
+                  Play a Game Together
+                </div>
+                <button onClick={() => setShowGames(false)} className="btn-ghost p-1">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {GAMES.map((game) => (
+                  <button
+                    key={game.id}
+                    onClick={() => startGame(game.id)}
+                    className="flex items-center gap-3 p-3 bg-dark-600 hover:bg-dark-500 rounded-lg transition-colors text-left"
+                  >
+                    <span className="text-2xl">{game.icon}</span>
+                    <div>
+                      <div className="font-medium text-sm">{game.name}</div>
+                      <div className="text-xs text-dark-400">{game.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input */}
       <div className="bg-dark-700/50 border-t border-dark-600 px-4 py-4">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex gap-2">
+          {/* Games Button */}
+          <button
+            type="button"
+            onClick={() => setShowGames(!showGames)}
+            className={`btn-ghost p-3 ${showGames ? 'text-success-400' : 'text-dark-300'}`}
+            title="Play a game"
+          >
+            <Gamepad2 size={24} />
+          </button>
+
           {recognitionRef.current && (
             <button
               type="button"
