@@ -28,10 +28,14 @@ const httpServer = createServer(app);
 // Initialize Firebase
 initializeFirebase();
 
+// CORS configuration
+const corsOrigins = process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'];
+const isDev = process.env.NODE_ENV !== 'production';
+
 // Socket.io setup
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: isDev ? true : corsOrigins, // Allow all origins in dev
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -44,9 +48,11 @@ app.set('io', io);
 setupSocketHandlers(io);
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: isDev ? { policy: 'cross-origin' } : undefined,
+}));
 app.use(cors({
-  origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: isDev ? true : corsOrigins, // Allow all origins in dev
   credentials: true,
 }));
 app.use(express.json());
@@ -89,8 +95,10 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const HOST = process.env.HOST || '0.0.0.0';
+
+httpServer.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
