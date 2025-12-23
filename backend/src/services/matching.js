@@ -76,6 +76,8 @@ function checkAgePreference(myAge, theirAge, preference) {
       return diff <= 5;
     case '±10':
       return diff <= 10;
+    case '±15':
+      return diff <= 15;
     default:
       return true;
   }

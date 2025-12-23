@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, AlertCircle, Check, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 function Register() {
@@ -15,23 +15,49 @@ function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  // Email validation
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Password validation rules
+  const passwordRules = useMemo(() => {
+    return {
+      minLength: password.length >= 8,
+      hasLetter: /[a-zA-Z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'/`~]/.test(password),
+    };
+  }, [password]);
+
+  const isPasswordValid = Object.values(passwordRules).every(Boolean);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // Validation
+    // Name validation
+    if (name.trim().length < 2) {
+      setError('Please enter your name (at least 2 characters)');
+      return;
+    }
+
+    // Email validation
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    // Password validation
+    if (!isPasswordValid) {
+      setError('Password does not meet all requirements');
+      return;
+    }
+
+    // Confirm password
     if (password !== confirmPassword) {
       setError('Passwords do not match');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
-    }
-
-    if (name.trim().length < 2) {
-      setError('Please enter your name');
       return;
     }
 
@@ -44,12 +70,21 @@ function Register() {
       setError(
         err.code === 'auth/email-already-in-use'
           ? 'Email is already registered'
-          : err.message
+          : err.code === 'auth/invalid-email'
+            ? 'Invalid email address'
+            : err.message
       );
     } finally {
       setLoading(false);
     }
   };
+
+  const PasswordRule = ({ met, label }) => (
+    <div className={`flex items-center gap-2 text-xs ${met ? 'text-success-400' : 'text-dark-400'}`}>
+      {met ? <Check size={14} /> : <X size={14} />}
+      {label}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-dark-800 flex items-center justify-center p-4">
@@ -114,10 +149,13 @@ function Register() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="input pl-12"
+                  className={`input pl-12 ${email && !isValidEmail(email) ? 'border-red-500' : ''}`}
                   required
                 />
               </div>
+              {email && !isValidEmail(email) && (
+                <p className="text-red-400 text-xs mt-1">Please enter a valid email address</p>
+              )}
             </div>
 
             {/* Password */}
@@ -129,11 +167,21 @@ function Register() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Create a strong password"
                   className="input pl-12"
                   required
                 />
               </div>
+              {/* Password requirements */}
+              {password && (
+                <div className="mt-2 p-3 bg-dark-700 rounded-lg space-y-1">
+                  <p className="text-xs text-dark-300 mb-2">Password must contain:</p>
+                  <PasswordRule met={passwordRules.minLength} label="At least 8 characters" />
+                  <PasswordRule met={passwordRules.hasLetter} label="At least 1 letter" />
+                  <PasswordRule met={passwordRules.hasNumber} label="At least 1 number" />
+                  <PasswordRule met={passwordRules.hasSpecial} label="At least 1 special character (!@#$%...)" />
+                </div>
+              )}
             </div>
 
             {/* Confirm Password */}
@@ -145,18 +193,21 @@ function Register() {
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="input pl-12"
+                  placeholder="Confirm your password"
+                  className={`input pl-12 ${confirmPassword && password !== confirmPassword ? 'border-red-500' : ''}`}
                   required
                 />
               </div>
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+              )}
             </div>
 
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading}
-              className="btn-primary w-full py-4 flex items-center justify-center gap-2"
+              disabled={loading || !isPasswordValid || !isValidEmail(email)}
+              className="btn-primary w-full py-4 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

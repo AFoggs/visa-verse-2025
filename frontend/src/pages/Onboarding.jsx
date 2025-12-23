@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -11,6 +11,9 @@ import {
   MessageSquare,
   Sparkles,
   Check,
+  Info,
+  Heart,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,23 +26,23 @@ const INTERESTS = [
 ];
 
 const REASONS = [
-  'Make new friends',
-  'Find people with similar interests',
-  'Expand my social circle',
-  'Practice communication skills',
-  'Meet people from different cultures',
-  'Combat loneliness',
-  'Find activity partners',
-  'Just curious to try it',
+  { id: 'friends', label: 'Make new friends', icon: '👋' },
+  { id: 'interests', label: 'Find people with similar interests', icon: '🎯' },
+  { id: 'expand', label: 'Expand my social circle', icon: '🌐' },
+  { id: 'skills', label: 'Practice communication skills', icon: '💬' },
+  { id: 'cultures', label: 'Meet people from different cultures', icon: '🌍' },
+  { id: 'loneliness', label: 'Combat loneliness', icon: '💙' },
+  { id: 'activities', label: 'Find activity partners', icon: '🎮' },
+  { id: 'curious', label: 'Just curious to try it', icon: '✨' },
 ];
 
 function Onboarding() {
   const [step, setStep] = useState(1);
   const [profile, setProfile] = useState({
     name: '',
-    age: '',
-    location: { city: '', country: '' },
-    whyHere: '',
+    dateOfBirth: '',
+    location: { city: '', state: '', country: '', displayPreference: 'city' },
+    whyHere: [], // Now an array for multiple selections
     interests: [],
     preferences: {
       geographic: 'global',
@@ -53,11 +56,40 @@ function Onboarding() {
   const navigate = useNavigate();
 
   // Pre-fill name from registration
-  useState(() => {
+  useEffect(() => {
     if (userProfile?.profile?.name) {
       setProfile((prev) => ({ ...prev, name: userProfile.profile.name }));
     }
   }, [userProfile]);
+
+  // Calculate age from DOB
+  const calculatedAge = useMemo(() => {
+    if (!profile.dateOfBirth) return null;
+    const today = new Date();
+    const birthDate = new Date(profile.dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }, [profile.dateOfBirth]);
+
+  const isAdult = calculatedAge !== null && calculatedAge >= 18;
+
+  // Max date for DOB (must be at least 18 years old)
+  const maxDOB = useMemo(() => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - 18);
+    return date.toISOString().split('T')[0];
+  }, []);
+
+  // Min date for DOB (reasonable limit of 120 years)
+  const minDOB = useMemo(() => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - 120);
+    return date.toISOString().split('T')[0];
+  }, []);
 
   const totalSteps = 5;
 
@@ -84,10 +116,34 @@ function Onboarding() {
     }));
   };
 
+  const toggleReason = (reasonId) => {
+    setProfile((prev) => ({
+      ...prev,
+      whyHere: prev.whyHere.includes(reasonId)
+        ? prev.whyHere.filter((r) => r !== reasonId)
+        : prev.whyHere.length < 3
+          ? [...prev.whyHere, reasonId]
+          : prev.whyHere,
+    }));
+  };
+
   const handleComplete = async () => {
     setLoading(true);
     try {
-      await completeOnboarding({ profile });
+      // Convert whyHere array to labels for storage
+      const whyHereLabels = profile.whyHere.map(id =>
+        REASONS.find(r => r.id === id)?.label || id
+      );
+
+      const profileData = {
+        profile: {
+          ...profile,
+          age: calculatedAge,
+          whyHere: whyHereLabels.join(', '),
+          whyHereIds: profile.whyHere, // Store IDs too for reference
+        },
+      };
+      await completeOnboarding(profileData);
       navigate('/dashboard');
     } catch (error) {
       console.error('Onboarding error:', error);
@@ -99,11 +155,11 @@ function Onboarding() {
   const isStepValid = () => {
     switch (step) {
       case 1:
-        return profile.name.trim().length >= 2 && profile.age >= 13 && profile.age <= 120;
+        return profile.name.trim().length >= 2 && isAdult;
       case 2:
         return profile.location.city.trim() && profile.location.country.trim();
       case 3:
-        return profile.whyHere.length > 0;
+        return profile.whyHere.length >= 1 && profile.whyHere.length <= 3;
       case 4:
         return profile.interests.length >= 5;
       case 5:
@@ -129,7 +185,7 @@ function Onboarding() {
       <div className="flex-1 flex items-center justify-center p-4 pt-12">
         <div className="w-full max-w-2xl">
           <AnimatePresence mode="wait">
-            {/* Step 1: Basic Info */}
+            {/* Step 1: Basic Info with DOB */}
             {step === 1 && (
               <motion.div
                 key="step1"
@@ -161,18 +217,34 @@ function Onboarding() {
                   <div>
                     <label className="block text-sm text-dark-200 mb-2">
                       <Calendar className="inline mr-2" size={16} />
-                      How old are you?
+                      Date of Birth
                     </label>
                     <input
-                      type="number"
-                      value={profile.age}
-                      onChange={(e) => setProfile({ ...profile, age: parseInt(e.target.value) || '' })}
-                      placeholder="Your age"
-                      min={13}
-                      max={120}
+                      type="date"
+                      value={profile.dateOfBirth}
+                      onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
+                      max={maxDOB}
+                      min={minDOB}
                       className="input"
                     />
-                    <p className="text-dark-400 text-sm mt-1">You must be at least 13 years old</p>
+                    {profile.dateOfBirth && (
+                      <div className="mt-2">
+                        {isAdult ? (
+                          <p className="text-success-400 text-sm flex items-center gap-2">
+                            <Check size={16} />
+                            You are {calculatedAge} years old
+                          </p>
+                        ) : (
+                          <p className="text-red-400 text-sm flex items-center gap-2">
+                            <Info size={16} />
+                            You must be at least 18 years old to use 3Degrees
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-dark-400 text-xs mt-2">
+                      Your exact date of birth won't be shared. Only your age will be visible to others.
+                    </p>
                   </div>
                 </div>
               </motion.div>
@@ -207,7 +279,23 @@ function Onboarding() {
                           location: { ...profile.location, city: e.target.value },
                         })
                       }
-                      placeholder="Your city"
+                      placeholder="e.g., New York"
+                      className="input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-dark-200 mb-2">State/Region (optional)</label>
+                    <input
+                      type="text"
+                      value={profile.location.state}
+                      onChange={(e) =>
+                        setProfile({
+                          ...profile,
+                          location: { ...profile.location, state: e.target.value },
+                        })
+                      }
+                      placeholder="e.g., New York"
                       className="input"
                     />
                   </div>
@@ -223,15 +311,48 @@ function Onboarding() {
                           location: { ...profile.location, country: e.target.value },
                         })
                       }
-                      placeholder="Your country"
+                      placeholder="e.g., United States"
                       className="input"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-dark-200 mb-3">
+                      What should others see?
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { value: 'city', label: 'City & Country' },
+                        { value: 'state', label: 'State/Region Only' },
+                        { value: 'country', label: 'Country Only' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() =>
+                            setProfile({
+                              ...profile,
+                              location: { ...profile.location, displayPreference: opt.value },
+                            })
+                          }
+                          className={`p-3 rounded-lg text-sm transition-all ${
+                            profile.location.displayPreference === opt.value
+                              ? 'bg-primary-400/20 border-2 border-primary-400'
+                              : 'bg-dark-600 border-2 border-transparent'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-dark-400 text-xs mt-2">
+                      This controls what location info other users can see on your profile.
+                    </p>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* Step 3: Why Here */}
+            {/* Step 3: Why Here - Multi-select */}
             {step === 3 && (
               <motion.div
                 key="step3"
@@ -242,30 +363,47 @@ function Onboarding() {
               >
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400/20 to-accent-400/20 flex items-center justify-center mx-auto mb-4">
-                    <Users className="text-primary-400" size={32} />
+                    <Heart className="text-primary-400" size={32} />
                   </div>
                   <h1 className="text-2xl font-bold mb-2">Why Are You Here?</h1>
-                  <p className="text-dark-300">What brings you to 3Degrees?</p>
+                  <p className="text-dark-300">
+                    Select up to 3 reasons ({profile.whyHere.length}/3 selected)
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {REASONS.map((reason) => (
-                    <button
-                      key={reason}
-                      onClick={() => setProfile({ ...profile, whyHere: reason })}
-                      className={`p-4 rounded-xl text-left transition-all duration-200 ${
-                        profile.whyHere === reason
-                          ? 'bg-primary-400/20 border-2 border-primary-400'
-                          : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        {profile.whyHere === reason && <Check size={18} className="text-primary-400" />}
-                        {reason}
-                      </span>
-                    </button>
-                  ))}
+                  {REASONS.map((reason) => {
+                    const isSelected = profile.whyHere.includes(reason.id);
+                    const isDisabled = !isSelected && profile.whyHere.length >= 3;
+
+                    return (
+                      <button
+                        key={reason.id}
+                        onClick={() => toggleReason(reason.id)}
+                        disabled={isDisabled}
+                        className={`p-4 rounded-xl text-left transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-primary-400/20 border-2 border-primary-400'
+                            : isDisabled
+                              ? 'bg-dark-700 border-2 border-transparent opacity-50 cursor-not-allowed'
+                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                        }`}
+                      >
+                        <span className="flex items-center gap-3">
+                          <span className="text-2xl">{reason.icon}</span>
+                          <span className="flex-1">{reason.label}</span>
+                          {isSelected && <Check size={18} className="text-primary-400" />}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
+
+                {profile.whyHere.length === 0 && (
+                  <p className="text-center text-amber-400 text-sm mt-4">
+                    Please select at least 1 reason
+                  </p>
+                )}
               </motion.div>
             )}
 
@@ -312,7 +450,7 @@ function Onboarding() {
               </motion.div>
             )}
 
-            {/* Step 5: Preferences */}
+            {/* Step 5: Preferences - Improved */}
             {step === 5 && (
               <motion.div
                 key="step5"
@@ -323,25 +461,34 @@ function Onboarding() {
               >
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400/20 to-accent-400/20 flex items-center justify-center mx-auto mb-4">
-                    <Globe className="text-primary-400" size={32} />
+                    <Users className="text-primary-400" size={32} />
                   </div>
-                  <h1 className="text-2xl font-bold mb-2">Your Preferences</h1>
-                  <p className="text-dark-300">Who would you like to connect with?</p>
+                  <h1 className="text-2xl font-bold mb-2">Connection Preferences</h1>
+                  <p className="text-dark-300">
+                    These settings help us find better matches for you within the app
+                  </p>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-8">
                   {/* Geographic */}
                   <div>
-                    <label className="block text-sm text-dark-200 mb-3">
-                      <Globe className="inline mr-2" size={16} />
-                      Geographic Preference
-                    </label>
+                    <div className="flex items-start gap-3 mb-3">
+                      <Globe className="text-primary-400 mt-0.5" size={20} />
+                      <div>
+                        <label className="block text-sm font-medium text-dark-100">
+                          Geographic Preference
+                        </label>
+                        <p className="text-xs text-dark-400 mt-1">
+                          Where would you like your connections to be from?
+                        </p>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { value: 'local', label: 'Local' },
-                        { value: 'regional', label: 'Regional' },
-                        { value: 'global', label: 'Global' },
-                        { value: 'online-only', label: 'Online Only' },
+                        { value: 'local', label: 'Local', desc: 'Same city' },
+                        { value: 'regional', label: 'Regional', desc: 'Same country' },
+                        { value: 'global', label: 'Global', desc: 'Anywhere in the world' },
+                        { value: 'online-only', label: 'Online Only', desc: 'No location preference' },
                       ].map((opt) => (
                         <button
                           key={opt.value}
@@ -351,13 +498,14 @@ function Onboarding() {
                               preferences: { ...profile.preferences, geographic: opt.value },
                             })
                           }
-                          className={`p-3 rounded-lg text-sm transition-all ${
+                          className={`p-3 rounded-lg text-left transition-all ${
                             profile.preferences.geographic === opt.value
                               ? 'bg-primary-400/20 border-2 border-primary-400'
-                              : 'bg-dark-600 border-2 border-transparent'
+                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
                           }`}
                         >
-                          {opt.label}
+                          <span className="block text-sm font-medium">{opt.label}</span>
+                          <span className="block text-xs text-dark-400">{opt.desc}</span>
                         </button>
                       ))}
                     </div>
@@ -365,16 +513,23 @@ function Onboarding() {
 
                   {/* Age Range */}
                   <div>
-                    <label className="block text-sm text-dark-200 mb-3">
-                      <Calendar className="inline mr-2" size={16} />
-                      Age Range Preference
-                    </label>
+                    <div className="flex items-start gap-3 mb-3">
+                      <Clock className="text-primary-400 mt-0.5" size={20} />
+                      <div>
+                        <label className="block text-sm font-medium text-dark-100">
+                          Age Range Preference
+                        </label>
+                        <p className="text-xs text-dark-400 mt-1">
+                          What age range would you prefer to connect with?
+                        </p>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {[
-                        { value: '±5', label: '±5 years' },
-                        { value: '±10', label: '±10 years' },
-                        { value: 'any', label: 'Any age' },
-                        { value: 'unspecified', label: 'No preference' },
+                        { value: '±5', label: '± 5 years', desc: 'Close to your age' },
+                        { value: '±10', label: '± 10 years', desc: 'Moderate range' },
+                        { value: '±15', label: '± 15 years', desc: 'Wide range' },
+                        { value: 'any', label: 'No preference', desc: 'Open to all ages' },
                       ].map((opt) => (
                         <button
                           key={opt.value}
@@ -384,13 +539,14 @@ function Onboarding() {
                               preferences: { ...profile.preferences, ageRange: opt.value },
                             })
                           }
-                          className={`p-3 rounded-lg text-sm transition-all ${
+                          className={`p-3 rounded-lg text-left transition-all ${
                             profile.preferences.ageRange === opt.value
                               ? 'bg-primary-400/20 border-2 border-primary-400'
-                              : 'bg-dark-600 border-2 border-transparent'
+                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
                           }`}
                         >
-                          {opt.label}
+                          <span className="block text-sm font-medium">{opt.label}</span>
+                          <span className="block text-xs text-dark-400">{opt.desc}</span>
                         </button>
                       ))}
                     </div>
@@ -398,15 +554,22 @@ function Onboarding() {
 
                   {/* Communication */}
                   <div>
-                    <label className="block text-sm text-dark-200 mb-3">
-                      <MessageSquare className="inline mr-2" size={16} />
-                      Communication Style
-                    </label>
+                    <div className="flex items-start gap-3 mb-3">
+                      <MessageSquare className="text-primary-400 mt-0.5" size={20} />
+                      <div>
+                        <label className="block text-sm font-medium text-dark-100">
+                          Communication Style
+                        </label>
+                        <p className="text-xs text-dark-400 mt-1">
+                          How do you prefer to communicate in the app?
+                        </p>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-3 gap-2">
                       {[
-                        { value: 'text', label: 'Text Only' },
-                        { value: 'voice', label: 'Voice Only' },
-                        { value: 'both', label: 'Both' },
+                        { value: 'text', label: 'Text', desc: 'Messages only' },
+                        { value: 'voice', label: 'Voice', desc: 'Voice/Video calls' },
+                        { value: 'both', label: 'Both', desc: 'Any communication' },
                       ].map((opt) => (
                         <button
                           key={opt.value}
@@ -416,17 +579,26 @@ function Onboarding() {
                               preferences: { ...profile.preferences, communication: opt.value },
                             })
                           }
-                          className={`p-3 rounded-lg text-sm transition-all ${
+                          className={`p-3 rounded-lg text-center transition-all ${
                             profile.preferences.communication === opt.value
                               ? 'bg-primary-400/20 border-2 border-primary-400'
-                              : 'bg-dark-600 border-2 border-transparent'
+                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
                           }`}
                         >
-                          {opt.label}
+                          <span className="block text-sm font-medium">{opt.label}</span>
+                          <span className="block text-xs text-dark-400">{opt.desc}</span>
                         </button>
                       ))}
                     </div>
                   </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-dark-700 rounded-lg">
+                  <p className="text-xs text-dark-300 flex items-start gap-2">
+                    <Info size={14} className="flex-shrink-0 mt-0.5" />
+                    These preferences help us suggest better matches within 3Degrees.
+                    You can change these anytime in your profile settings.
+                  </p>
                 </div>
               </motion.div>
             )}
