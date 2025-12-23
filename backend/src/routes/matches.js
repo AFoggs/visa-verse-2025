@@ -117,24 +117,33 @@ router.post('/connect', async (req, res) => {
     const currentUser = { userId: req.user.uid, ...currentUserDoc.data() };
     const otherUser = { userId, ...otherUserDoc.data() };
 
-    // Check if a pending match already exists (other user already requested to connect)
-    // Check both directions since user1Id/user2Id order depends on who initiated first
-    const existingMatch1 = await db.collection('matches')
+    // Check if any match already exists between these two users
+    // Query all matches involving both users (regardless of who is user1 or user2)
+    const allMatches1 = await db.collection('matches')
       .where('user1Id', '==', userId)
       .where('user2Id', '==', req.user.uid)
-      .where('status', '==', 'pending')
       .get();
 
-    const existingMatch2 = await db.collection('matches')
+    const allMatches2 = await db.collection('matches')
       .where('user1Id', '==', req.user.uid)
       .where('user2Id', '==', userId)
-      .where('status', '==', 'pending')
       .get();
 
-    // If other user already sent a connection request, complete the connection
-    if (!existingMatch1.empty) {
-      const matchDoc = existingMatch1.docs[0];
+    console.log('Existing matches check:', {
+      matches1Count: allMatches1.size,
+      matches2Count: allMatches2.size,
+      matches1Data: allMatches1.docs.map(d => ({ id: d.id, status: d.data().status })),
+      matches2Data: allMatches2.docs.map(d => ({ id: d.id, status: d.data().status })),
+    });
+
+    // Check if other user already sent a pending request TO current user
+    const pendingFromOther = allMatches1.docs.find(d => d.data().status === 'pending');
+
+    if (pendingFromOther) {
+      const matchDoc = pendingFromOther;
       const matchData = matchDoc.data();
+
+      console.log('Found pending request from other user, completing mutual connection');
 
       // Upgrade to connected
       await matchDoc.ref.update({
@@ -148,11 +157,11 @@ router.post('/connect', async (req, res) => {
       const otherConnections = otherUser.connections?.connections || [];
 
       await db.collection('users').doc(req.user.uid).update({
-        'connections.connections': [...currentConnections, userId],
+        'connections.connections': [...new Set([...currentConnections, userId])],
       });
 
       await db.collection('users').doc(userId).update({
-        'connections.connections': [...otherConnections, req.user.uid],
+        'connections.connections': [...new Set([...otherConnections, req.user.uid])],
       });
 
       console.log('Mutual connection complete:', { matchId: matchDoc.id, user1: userId, user2: req.user.uid });
@@ -163,12 +172,25 @@ router.post('/connect', async (req, res) => {
       });
     }
 
-    // Check if current user already sent a request
-    if (!existingMatch2.empty) {
+    // Check if current user already sent a pending request
+    const pendingFromCurrent = allMatches2.docs.find(d => d.data().status === 'pending');
+
+    if (pendingFromCurrent) {
+      console.log('Current user already sent a request, still pending');
       return res.json({
-        match: existingMatch2.docs[0].data(),
+        match: pendingFromCurrent.data(),
         message: 'Connection request already sent. Waiting for them to connect back.',
         pending: true
+      });
+    }
+
+    // Check if already connected
+    const alreadyConnected = [...allMatches1.docs, ...allMatches2.docs].find(d => d.data().status === 'connected');
+    if (alreadyConnected) {
+      return res.json({
+        match: alreadyConnected.data(),
+        message: 'You are already connected!',
+        alreadyConnected: true
       });
     }
 
@@ -226,6 +248,67 @@ router.post('/connect', async (req, res) => {
   } catch (error) {
     console.error('Connect error:', error);
     res.status(500).json({ error: 'Failed to connect', details: error.message });
+  }
+});
+
+// Accept a pending connection request
+router.post('/accept/:matchId', async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const db = getDb();
+
+    const matchDoc = await db.collection('matches').doc(matchId).get();
+
+    if (!matchDoc.exists) {
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    const matchData = matchDoc.data();
+
+    // Verify current user is user2 (the one who received the request)
+    if (matchData.user2Id !== req.user.uid) {
+      return res.status(403).json({ error: 'You cannot accept this request' });
+    }
+
+    if (matchData.status !== 'pending') {
+      return res.status(400).json({ error: 'This request is not pending' });
+    }
+
+    // Get both user profiles for updating connections
+    const currentUserDoc = await db.collection('users').doc(req.user.uid).get();
+    const otherUserDoc = await db.collection('users').doc(matchData.user1Id).get();
+
+    const currentUser = currentUserDoc.data();
+    const otherUser = otherUserDoc.data();
+
+    // Upgrade to connected
+    await matchDoc.ref.update({
+      status: 'connected',
+      'connectionRequest.user2Accepted': true,
+      connectedAt: new Date(),
+    });
+
+    // Update both users' connections
+    const currentConnections = currentUser.connections?.connections || [];
+    const otherConnections = otherUser.connections?.connections || [];
+
+    await db.collection('users').doc(req.user.uid).update({
+      'connections.connections': [...new Set([...currentConnections, matchData.user1Id])],
+    });
+
+    await db.collection('users').doc(matchData.user1Id).update({
+      'connections.connections': [...new Set([...otherConnections, req.user.uid])],
+    });
+
+    console.log('Connection accepted:', { matchId, user1: matchData.user1Id, user2: req.user.uid });
+    res.json({
+      match: { ...matchData, status: 'connected' },
+      message: 'Connection accepted! You can now chat.',
+      success: true
+    });
+  } catch (error) {
+    console.error('Accept connection error:', error);
+    res.status(500).json({ error: 'Failed to accept connection' });
   }
 });
 

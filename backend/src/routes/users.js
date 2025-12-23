@@ -78,6 +78,80 @@ router.get('/friends', async (req, res) => {
   }
 });
 
+// Get pending connection requests (people who want to connect with you)
+router.get('/pending-requests', async (req, res) => {
+  try {
+    const db = getDb();
+    console.log('Fetching pending requests for user:', req.user.uid);
+
+    // Find pending matches where current user is user2 (someone sent request TO current user)
+    const pendingMatches = await db.collection('matches')
+      .where('user2Id', '==', req.user.uid)
+      .where('status', '==', 'pending')
+      .get();
+
+    console.log('Found pending requests:', pendingMatches.size);
+
+    const pendingRequests = [];
+
+    pendingMatches.forEach(doc => {
+      const match = doc.data();
+      pendingRequests.push({
+        matchId: doc.id,
+        fromUser: {
+          userId: match.user1Id,
+          ...match.user1Profile,
+        },
+        compatibilityScore: match.compatibilityScore,
+        sharedInterests: match.sharedInterests,
+        createdAt: match.createdAt,
+      });
+    });
+
+    res.json({ pendingRequests });
+  } catch (error) {
+    console.error('Get pending requests error:', error);
+    res.status(500).json({ error: 'Failed to get pending requests' });
+  }
+});
+
+// Get sent connection requests (requests you sent that are pending)
+router.get('/sent-requests', async (req, res) => {
+  try {
+    const db = getDb();
+    console.log('Fetching sent requests for user:', req.user.uid);
+
+    // Find pending matches where current user is user1 (current user sent request)
+    const sentMatches = await db.collection('matches')
+      .where('user1Id', '==', req.user.uid)
+      .where('status', '==', 'pending')
+      .get();
+
+    console.log('Found sent requests:', sentMatches.size);
+
+    const sentRequests = [];
+
+    sentMatches.forEach(doc => {
+      const match = doc.data();
+      sentRequests.push({
+        matchId: doc.id,
+        toUser: {
+          userId: match.user2Id,
+          ...match.user2Profile,
+        },
+        compatibilityScore: match.compatibilityScore,
+        sharedInterests: match.sharedInterests,
+        createdAt: match.createdAt,
+      });
+    });
+
+    res.json({ sentRequests });
+  } catch (error) {
+    console.error('Get sent requests error:', error);
+    res.status(500).json({ error: 'Failed to get sent requests' });
+  }
+});
+
 // Get connections list (must be before /:userId route)
 router.get('/connections', async (req, res) => {
   try {

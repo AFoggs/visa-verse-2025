@@ -88,6 +88,11 @@ export const matchesApi = {
     fetchWithAuth(`/api/matches/${matchId}/accept-friend`, {
       method: 'POST',
     }),
+
+  acceptConnection: (matchId) =>
+    fetchWithAuth(`/api/matches/accept/${matchId}`, {
+      method: 'POST',
+    }),
 };
 
 // Chat API
@@ -109,6 +114,8 @@ export const chatApi = {
 export const userApi = {
   getProfile: (userId) => fetchWithAuth(`/api/users/${userId}`),
 
+  getMe: () => fetchWithAuth('/api/users/me'),
+
   updateProfile: (updates) =>
     fetchWithAuth('/api/users/profile', {
       method: 'PUT',
@@ -118,6 +125,10 @@ export const userApi = {
   getFriends: () => fetchWithAuth('/api/users/friends'),
 
   getConnections: () => fetchWithAuth('/api/users/connections'),
+
+  getPendingRequests: () => fetchWithAuth('/api/users/pending-requests'),
+
+  getSentRequests: () => fetchWithAuth('/api/users/sent-requests'),
 };
 
 // Games API
