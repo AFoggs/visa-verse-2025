@@ -12,6 +12,11 @@ import {
   Users,
   Save,
   Lock,
+  MapPinned,
+  Clock,
+  MessageCircle,
+  Mic,
+  Type,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../services/api';
@@ -174,6 +179,7 @@ function Profile() {
               photoUrl={editing ? editData.photoUrl : displayProfile?.photoUrl}
               onPhotoChange={handlePhotoChange}
               canEdit={isOwnProfile && editing}
+              isOwnProfile={isOwnProfile}
               isFriend={!isOwnProfile && profile.status === 'friends'}
               size="lg"
               name={editing ? editData.name : displayProfile?.name}
@@ -292,27 +298,153 @@ function Profile() {
 
         {/* Preferences */}
         <div className="p-6">
-          <h3 className="text-sm text-dark-300 mb-3">Preferences</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="flex items-center gap-2">
-              <Globe size={18} className="text-dark-400" />
-              <span className="capitalize">
-                {displayProfile?.preferences?.geographic || 'Global'}
-              </span>
+          <h3 className="text-sm text-dark-300 mb-4">Connection Preferences</h3>
+          {editing ? (
+            <div className="space-y-6">
+              {/* Geographic Preference */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPinned size={18} className="text-primary-400" />
+                  <span className="text-sm font-medium">Where to connect</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'local', label: 'Local', icon: '📍' },
+                    { value: 'regional', label: 'Regional', icon: '🗺️' },
+                    { value: 'global', label: 'Global', icon: '🌍' },
+                    { value: 'online-only', label: 'Online Only', icon: '💻' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() =>
+                        setEditData({
+                          ...editData,
+                          preferences: { ...editData.preferences, geographic: opt.value },
+                        })
+                      }
+                      className={`p-3 rounded-lg text-left transition-all flex items-center gap-2 ${
+                        editData.preferences?.geographic === opt.value
+                          ? 'bg-primary-400/20 border-2 border-primary-400'
+                          : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                      }`}
+                    >
+                      <span>{opt.icon}</span>
+                      <span className="text-sm">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Age Range Preference */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock size={18} className="text-accent-400" />
+                  <span className="text-sm font-medium">Age range</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: '±5', label: '± 5 years', icon: '👥' },
+                    { value: '±10', label: '± 10 years', icon: '👨‍👩‍👧' },
+                    { value: '±15', label: '± 15 years', icon: '👨‍👩‍👧‍👦' },
+                    { value: 'any', label: 'Any age', icon: '🌟' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() =>
+                        setEditData({
+                          ...editData,
+                          preferences: { ...editData.preferences, ageRange: opt.value },
+                        })
+                      }
+                      className={`p-3 rounded-lg text-left transition-all flex items-center gap-2 ${
+                        editData.preferences?.ageRange === opt.value
+                          ? 'bg-accent-400/20 border-2 border-accent-400'
+                          : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                      }`}
+                    >
+                      <span>{opt.icon}</span>
+                      <span className="text-sm">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Communication Preference */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageCircle size={18} className="text-success-400" />
+                  <span className="text-sm font-medium">Communication style</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'text', label: 'Text', icon: '💬' },
+                    { value: 'voice', label: 'Voice', icon: '🎙️' },
+                    { value: 'both', label: 'Both', icon: '🗣️' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() =>
+                        setEditData({
+                          ...editData,
+                          preferences: { ...editData.preferences, communication: opt.value },
+                        })
+                      }
+                      className={`p-3 rounded-lg text-center transition-all ${
+                        editData.preferences?.communication === opt.value
+                          ? 'bg-success-400/20 border-2 border-success-400'
+                          : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                      }`}
+                    >
+                      <span className="text-xl block mb-1">{opt.icon}</span>
+                      <span className="text-sm">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-dark-400" />
-              <span>
-                {displayProfile?.preferences?.ageRange || 'Any age'}
-              </span>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg">
+                <span className="text-xl">
+                  {displayProfile?.preferences?.geographic === 'local' ? '📍' :
+                   displayProfile?.preferences?.geographic === 'regional' ? '🗺️' :
+                   displayProfile?.preferences?.geographic === 'online-only' ? '💻' : '🌍'}
+                </span>
+                <div>
+                  <p className="text-xs text-dark-400">Location</p>
+                  <p className="capitalize text-sm font-medium">
+                    {displayProfile?.preferences?.geographic || 'Global'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg">
+                <span className="text-xl">
+                  {displayProfile?.preferences?.ageRange === '±5' ? '👥' :
+                   displayProfile?.preferences?.ageRange === '±10' ? '👨‍👩‍👧' :
+                   displayProfile?.preferences?.ageRange === '±15' ? '👨‍👩‍👧‍👦' : '🌟'}
+                </span>
+                <div>
+                  <p className="text-xs text-dark-400">Age Range</p>
+                  <p className="text-sm font-medium">
+                    {displayProfile?.preferences?.ageRange === 'any' ? 'Any age' :
+                     displayProfile?.preferences?.ageRange || 'Any age'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg">
+                <span className="text-xl">
+                  {displayProfile?.preferences?.communication === 'text' ? '💬' :
+                   displayProfile?.preferences?.communication === 'voice' ? '🎙️' : '🗣️'}
+                </span>
+                <div>
+                  <p className="text-xs text-dark-400">Communication</p>
+                  <p className="capitalize text-sm font-medium">
+                    {displayProfile?.preferences?.communication || 'Both'}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <MessageSquare size={18} className="text-dark-400" />
-              <span className="capitalize">
-                {displayProfile?.preferences?.communication || 'Both'}
-              </span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Edit Actions */}

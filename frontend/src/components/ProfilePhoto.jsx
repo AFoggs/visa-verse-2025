@@ -8,6 +8,7 @@ function ProfilePhoto({
   photoUrl,
   onPhotoChange,
   canEdit = false,
+  isOwnProfile = false,
   isFriend = false,
   size = 'lg',
   name = '',
@@ -22,6 +23,9 @@ function ProfilePhoto({
     lg: 'w-24 h-24 text-4xl',
     xl: 'w-32 h-32 text-5xl',
   };
+
+  // Can view photo if: it's own profile, is a friend, or can edit
+  const canViewPhoto = isOwnProfile || isFriend || canEdit;
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -98,20 +102,20 @@ function ProfilePhoto({
     }
   };
 
-  // Show locked state for non-friends
-  const showLockedState = photoUrl && !isFriend && !canEdit;
+  // Show locked state for non-friends viewing someone else's photo
+  const showLockedState = photoUrl && !canViewPhoto;
 
   return (
     <div className="relative inline-block">
       {/* Photo or Placeholder */}
       <div
         className={`${sizeClasses[size]} rounded-full overflow-hidden flex items-center justify-center font-semibold relative ${
-          photoUrl && (isFriend || canEdit)
+          photoUrl && canViewPhoto
             ? ''
             : 'bg-gradient-to-br from-primary-400 to-accent-400'
         }`}
       >
-        {photoUrl && (isFriend || canEdit) ? (
+        {photoUrl && canViewPhoto ? (
           <img
             src={photoUrl}
             alt={name || 'Profile'}
