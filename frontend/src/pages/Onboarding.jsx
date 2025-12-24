@@ -13,18 +13,42 @@ import {
   Check,
   Info,
   Heart,
-  Clock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LocationSearch from '../components/LocationSearch';
 
-const INTERESTS = [
-  'Technology', 'Gaming', 'Music', 'Movies', 'Travel', 'Fitness',
-  'Cooking', 'Reading', 'Art', 'Photography', 'Nature', 'Science',
-  'Sports', 'Fashion', 'Writing', 'Podcasts', 'Anime', 'Pets',
-  'Entrepreneurship', 'Philosophy', 'Languages', 'Dancing', 'Yoga',
-  'Hiking', 'Board Games', 'Crafts', 'Volunteering', 'Meditation',
+// Top 30 common interests
+const TOP_INTERESTS = [
+  'Travel', 'Music', 'Movies', 'Reading', 'Cooking', 'Fitness',
+  'Photography', 'Gaming', 'Technology', 'Art', 'Sports', 'Hiking',
+  'Nature', 'Podcasts', 'Writing', 'Yoga', 'Fashion', 'Pets',
+  'Science', 'Dancing', 'Coffee', 'Food', 'Running', 'Anime',
+  'Board Games', 'Languages', 'Entrepreneurship', 'Philosophy',
+  'Meditation', 'Volunteering',
 ];
+
+// Additional 73 interests
+const EXTRA_INTERESTS = [
+  'AI', 'Astrology', 'Backpacking', 'Baking', 'Beach', 'Birdwatching',
+  'Camping', 'Card Games', 'Cars', 'Chess', 'Climbing', 'Coding',
+  'Collecting', 'Comedy', 'Concerts', 'Cosplay', 'Crafts', 'Crypto',
+  'Cuisine', 'Cycling', 'Design', 'Documentaries', 'Drawing', 'Escape Rooms',
+  'Festivals', 'Filmmaking', 'Fishing', 'Gardening', 'Gym', 'History',
+  'Home Improvement', 'Instruments', 'Investing', 'Karaoke', 'Kayaking',
+  'Knitting', 'K-pop', 'Manga', 'Martial Arts', 'Memes', 'Minimalism',
+  'Mixology', 'Mobile Games', 'Models', 'Mountain Biking', 'Museums',
+  'Networking', 'Parenting', 'Psychology', 'Puzzles', 'Real Estate',
+  'Robotics', 'Self-Improvement', 'Singing', 'Skateboarding', 'Skiing',
+  'Social Media', 'Spirituality', 'Streaming', 'Surfing', 'Sustainability',
+  'Swimming', 'Team Sports', 'Tennis', 'Theater', 'Thrifting', 'Trivia',
+  'TV Shows', 'Vintage', 'Vlogging', 'VR', 'Wine', 'Woodworking',
+];
+
+// Helper to get random items from array
+function getRandomItems(arr, count) {
+  const shuffled = [...arr].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
 
 const REASONS = [
   { id: 'friends', label: 'Make new friends', icon: '👋' },
@@ -52,6 +76,8 @@ function Onboarding() {
     },
   });
   const [loading, setLoading] = useState(false);
+  const [showMoreInterests, setShowMoreInterests] = useState(false);
+  const [randomExtraInterests, setRandomExtraInterests] = useState([]);
 
   const { userProfile, completeOnboarding } = useAuth();
   const navigate = useNavigate();
@@ -350,20 +376,92 @@ function Onboarding() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {INTERESTS.map((interest) => (
-                    <button
-                      key={interest}
-                      onClick={() => toggleInterest(interest)}
-                      className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ${
-                        profile.interests.includes(interest)
-                          ? 'bg-primary-400 text-white'
-                          : 'bg-dark-600 hover:bg-dark-500'
-                      }`}
-                    >
-                      {interest}
-                    </button>
-                  ))}
+                <div className="space-y-4">
+                  {/* Top 30 interests */}
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {TOP_INTERESTS.map((interest) => (
+                      <button
+                        key={interest}
+                        onClick={() => toggleInterest(interest)}
+                        disabled={!profile.interests.includes(interest) && profile.interests.length >= 10}
+                        className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ${
+                          profile.interests.includes(interest)
+                            ? 'bg-primary-400 text-white'
+                            : profile.interests.length >= 10
+                              ? 'bg-dark-700 text-dark-500 cursor-not-allowed'
+                              : 'bg-dark-600 hover:bg-dark-500'
+                        }`}
+                      >
+                        {interest}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Show More button and extra interests */}
+                  {!showMoreInterests ? (
+                    <div className="text-center">
+                      <button
+                        onClick={() => {
+                          setRandomExtraInterests(getRandomItems(EXTRA_INTERESTS, 10));
+                          setShowMoreInterests(true);
+                        }}
+                        className="text-primary-400 text-sm hover:underline"
+                      >
+                        + See more interests
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2 justify-center pt-3 border-t border-dark-600">
+                        {randomExtraInterests.map((interest) => (
+                          <button
+                            key={interest}
+                            onClick={() => toggleInterest(interest)}
+                            disabled={!profile.interests.includes(interest) && profile.interests.length >= 10}
+                            className={`px-4 py-2 rounded-full text-sm transition-all duration-200 ${
+                              profile.interests.includes(interest)
+                                ? 'bg-primary-400 text-white'
+                                : profile.interests.length >= 10
+                                  ? 'bg-dark-700 text-dark-500 cursor-not-allowed'
+                                  : 'bg-dark-600 hover:bg-dark-500'
+                            }`}
+                          >
+                            {interest}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="text-center">
+                        <button
+                          onClick={() => {
+                            setRandomExtraInterests(getRandomItems(EXTRA_INTERESTS, 10));
+                          }}
+                          className="text-dark-400 text-sm hover:text-primary-400"
+                        >
+                          ↻ Show different interests
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show any selected extras that aren't in the current random set */}
+                  {profile.interests.filter(i =>
+                    EXTRA_INTERESTS.includes(i) && !randomExtraInterests.includes(i)
+                  ).length > 0 && (
+                    <div className="flex flex-wrap gap-2 justify-center pt-3">
+                      <span className="text-xs text-dark-400 w-full text-center">Your selected:</span>
+                      {profile.interests.filter(i =>
+                        EXTRA_INTERESTS.includes(i) && !randomExtraInterests.includes(i)
+                      ).map((interest) => (
+                        <button
+                          key={interest}
+                          onClick={() => toggleInterest(interest)}
+                          className="px-4 py-2 rounded-full text-sm bg-primary-400 text-white"
+                        >
+                          {interest}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {profile.interests.length < 5 && (
@@ -437,16 +535,13 @@ function Onboarding() {
 
                   {/* Age Range */}
                   <div>
-                    <div className="flex items-start gap-3 mb-3">
-                      <Clock className="text-primary-400 mt-0.5" size={20} />
-                      <div>
-                        <label className="block text-sm font-medium text-dark-100">
-                          Age Range Preference
-                        </label>
-                        <p className="text-xs text-dark-400 mt-1">
-                          What age range would you prefer to connect with?
-                        </p>
-                      </div>
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium text-dark-100">
+                        Age Range Preference
+                      </label>
+                      <p className="text-xs text-dark-400 mt-1">
+                        Match with people within this age range of you
+                      </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       {[

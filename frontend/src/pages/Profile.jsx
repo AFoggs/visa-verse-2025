@@ -13,10 +13,7 @@ import {
   Save,
   Lock,
   MapPinned,
-  Clock,
   MessageCircle,
-  Mic,
-  Type,
   Heart,
   Check,
   Info,
@@ -26,12 +23,31 @@ import { userApi } from '../services/api';
 import LocationSearch from '../components/LocationSearch';
 import ProfilePhoto from '../components/ProfilePhoto';
 
-const INTERESTS = [
-  'Technology', 'Gaming', 'Music', 'Movies', 'Travel', 'Fitness',
-  'Cooking', 'Reading', 'Art', 'Photography', 'Nature', 'Science',
-  'Sports', 'Fashion', 'Writing', 'Podcasts', 'Anime', 'Pets',
-  'Entrepreneurship', 'Philosophy', 'Languages', 'Dancing', 'Yoga',
-  'Hiking', 'Board Games', 'Crafts', 'Volunteering', 'Meditation',
+// Top 30 common interests
+const TOP_INTERESTS = [
+  'Travel', 'Music', 'Movies', 'Reading', 'Cooking', 'Fitness',
+  'Photography', 'Gaming', 'Technology', 'Art', 'Sports', 'Hiking',
+  'Nature', 'Podcasts', 'Writing', 'Yoga', 'Fashion', 'Pets',
+  'Science', 'Dancing', 'Coffee', 'Food', 'Running', 'Anime',
+  'Board Games', 'Languages', 'Entrepreneurship', 'Philosophy',
+  'Meditation', 'Volunteering',
+];
+
+// Additional 73 interests
+const EXTRA_INTERESTS = [
+  'AI', 'Astrology', 'Backpacking', 'Baking', 'Beach', 'Birdwatching',
+  'Camping', 'Card Games', 'Cars', 'Chess', 'Climbing', 'Coding',
+  'Collecting', 'Comedy', 'Concerts', 'Cosplay', 'Crafts', 'Crypto',
+  'Cuisine', 'Cycling', 'Design', 'Documentaries', 'Drawing', 'Escape Rooms',
+  'Festivals', 'Filmmaking', 'Fishing', 'Gardening', 'Gym', 'History',
+  'Home Improvement', 'Instruments', 'Investing', 'Karaoke', 'Kayaking',
+  'Knitting', 'K-pop', 'Manga', 'Martial Arts', 'Memes', 'Minimalism',
+  'Mixology', 'Mobile Games', 'Models', 'Mountain Biking', 'Museums',
+  'Networking', 'Parenting', 'Psychology', 'Puzzles', 'Real Estate',
+  'Robotics', 'Self-Improvement', 'Singing', 'Skateboarding', 'Skiing',
+  'Social Media', 'Spirituality', 'Streaming', 'Surfing', 'Sustainability',
+  'Swimming', 'Team Sports', 'Tennis', 'Theater', 'Thrifting', 'Trivia',
+  'TV Shows', 'Vintage', 'Vlogging', 'VR', 'Wine', 'Woodworking',
 ];
 
 const REASONS = [
@@ -45,6 +61,12 @@ const REASONS = [
   { id: 'curious', label: 'Just curious to try it', icon: '✨' },
 ];
 
+// Helper to get random items from array
+function getRandomItems(arr, count) {
+  const shuffled = [...arr].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
+
 function Profile() {
   const { userId } = useParams();
   const navigate = useNavigate();
@@ -55,6 +77,8 @@ function Profile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState({});
+  const [showMoreInterests, setShowMoreInterests] = useState(false);
+  const [randomExtraInterests, setRandomExtraInterests] = useState([]);
 
   const isOwnProfile = !userId || userId === user?.uid;
 
@@ -346,20 +370,88 @@ function Profile() {
             Interests ({(editing ? editData.interests : displayProfile?.interests)?.length || 0}/10)
           </h3>
           {editing ? (
-            <div className="flex flex-wrap gap-2">
-              {INTERESTS.map((interest) => (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {/* Show top interests + any selected interests from extras */}
+                {TOP_INTERESTS.map((interest) => (
+                  <button
+                    key={interest}
+                    onClick={() => toggleInterest(interest)}
+                    disabled={!editData.interests?.includes(interest) && (editData.interests?.length || 0) >= 10}
+                    className={`px-3 py-1 rounded-full text-sm transition-all ${
+                      editData.interests?.includes(interest)
+                        ? 'bg-primary-400 text-white'
+                        : (editData.interests?.length || 0) >= 10
+                          ? 'bg-dark-700 text-dark-500 cursor-not-allowed'
+                          : 'bg-dark-600 hover:bg-dark-500'
+                    }`}
+                  >
+                    {interest}
+                  </button>
+                ))}
+              </div>
+
+              {/* Show More button and extra interests */}
+              {!showMoreInterests ? (
                 <button
-                  key={interest}
-                  onClick={() => toggleInterest(interest)}
-                  className={`px-3 py-1 rounded-full text-sm transition-all ${
-                    editData.interests?.includes(interest)
-                      ? 'bg-primary-400 text-white'
-                      : 'bg-dark-600 hover:bg-dark-500'
-                  }`}
+                  onClick={() => {
+                    setRandomExtraInterests(getRandomItems(EXTRA_INTERESTS, 10));
+                    setShowMoreInterests(true);
+                  }}
+                  className="text-primary-400 text-sm hover:underline"
                 >
-                  {interest}
+                  + See more interests
                 </button>
-              ))}
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-dark-600">
+                    {randomExtraInterests.map((interest) => (
+                      <button
+                        key={interest}
+                        onClick={() => toggleInterest(interest)}
+                        disabled={!editData.interests?.includes(interest) && (editData.interests?.length || 0) >= 10}
+                        className={`px-3 py-1 rounded-full text-sm transition-all ${
+                          editData.interests?.includes(interest)
+                            ? 'bg-primary-400 text-white'
+                            : (editData.interests?.length || 0) >= 10
+                              ? 'bg-dark-700 text-dark-500 cursor-not-allowed'
+                              : 'bg-dark-600 hover:bg-dark-500'
+                        }`}
+                      >
+                        {interest}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setRandomExtraInterests(getRandomItems(EXTRA_INTERESTS, 10));
+                    }}
+                    className="text-dark-400 text-sm hover:text-primary-400"
+                  >
+                    ↻ Show different interests
+                  </button>
+                </>
+              )}
+
+              {/* Show any selected extras that aren't in the current random set */}
+              {editData.interests?.filter(i =>
+                EXTRA_INTERESTS.includes(i) && !randomExtraInterests.includes(i)
+              ).length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <span className="text-xs text-dark-400 w-full">Your selected:</span>
+                  {editData.interests?.filter(i =>
+                    EXTRA_INTERESTS.includes(i) && !randomExtraInterests.includes(i)
+                  ).map((interest) => (
+                    <button
+                      key={interest}
+                      onClick={() => toggleInterest(interest)}
+                      className="px-3 py-1 rounded-full text-sm bg-primary-400 text-white"
+                    >
+                      {interest}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -431,16 +523,15 @@ function Profile() {
               {/* Age Range Preference */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">📅</span>
                   <span className="text-sm font-medium">Age range</span>
                 </div>
                 <p className="text-xs text-dark-400 mb-3">Match with people within this age range of you</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: '±5', label: '± 5 years', icon: '🎯', desc: 'Close to my age' },
-                    { value: '±10', label: '± 10 years', icon: '📊', desc: 'Moderate range' },
-                    { value: '±15', label: '± 15 years', icon: '📈', desc: 'Wide range' },
-                    { value: 'any', label: 'Any age', icon: '♾️', desc: 'No limit' },
+                    { value: '±5', label: '± 5 years', desc: 'Close to my age' },
+                    { value: '±10', label: '± 10 years', desc: 'Moderate range' },
+                    { value: '±15', label: '± 15 years', desc: 'Wide range' },
+                    { value: 'any', label: 'Any age', desc: 'No limit' },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -456,12 +547,9 @@ function Profile() {
                           : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{opt.icon}</span>
-                        <div>
-                          <span className="text-sm font-medium block">{opt.label}</span>
-                          <span className="text-xs text-dark-400">{opt.desc}</span>
-                        </div>
+                      <div>
+                        <span className="text-sm font-medium block">{opt.label}</span>
+                        <span className="text-xs text-dark-400">{opt.desc}</span>
                       </div>
                     </button>
                   ))}
@@ -517,19 +605,12 @@ function Profile() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg">
-                <span className="text-xl">
-                  {displayProfile?.preferences?.ageRange === '±5' ? '🎯' :
-                   displayProfile?.preferences?.ageRange === '±10' ? '📊' :
-                   displayProfile?.preferences?.ageRange === '±15' ? '📈' : '♾️'}
-                </span>
-                <div>
-                  <p className="text-xs text-dark-400">Age Range</p>
-                  <p className="text-sm font-medium">
-                    {displayProfile?.preferences?.ageRange === 'any' ? 'Any age' :
-                     displayProfile?.preferences?.ageRange || 'Any age'}
-                  </p>
-                </div>
+              <div className="p-3 bg-dark-700 rounded-lg">
+                <p className="text-xs text-dark-400">Age Range</p>
+                <p className="text-sm font-medium">
+                  {displayProfile?.preferences?.ageRange === 'any' ? 'Any age' :
+                   displayProfile?.preferences?.ageRange || 'Any age'}
+                </p>
               </div>
               <div className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg">
                 <span className="text-xl">
