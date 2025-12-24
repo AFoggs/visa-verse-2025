@@ -17,6 +17,9 @@ import {
   MessageCircle,
   Mic,
   Type,
+  Heart,
+  Check,
+  Info,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../services/api';
@@ -29,6 +32,17 @@ const INTERESTS = [
   'Sports', 'Fashion', 'Writing', 'Podcasts', 'Anime', 'Pets',
   'Entrepreneurship', 'Philosophy', 'Languages', 'Dancing', 'Yoga',
   'Hiking', 'Board Games', 'Crafts', 'Volunteering', 'Meditation',
+];
+
+const REASONS = [
+  { id: 'friends', label: 'Make new friends', icon: '👋' },
+  { id: 'interests', label: 'Find people with similar interests', icon: '🎯' },
+  { id: 'expand', label: 'Expand my social circle', icon: '🌐' },
+  { id: 'skills', label: 'Practice communication skills', icon: '💬' },
+  { id: 'cultures', label: 'Meet people from different cultures', icon: '🌍' },
+  { id: 'loneliness', label: 'Combat loneliness', icon: '💙' },
+  { id: 'activities', label: 'Find activity partners', icon: '🎮' },
+  { id: 'curious', label: 'Just curious to try it', icon: '✨' },
 ];
 
 function Profile() {
@@ -55,6 +69,7 @@ function Profile() {
           interests: userProfile?.profile?.interests || [],
           preferences: userProfile?.profile?.preferences || {},
           photoUrl: userProfile?.profile?.photoUrl || null,
+          whyHereIds: userProfile?.profile?.whyHereIds || [],
         });
         setLoading(false);
       } else {
@@ -83,6 +98,17 @@ function Profile() {
     }));
   };
 
+  const toggleReason = (reasonId) => {
+    setEditData((prev) => ({
+      ...prev,
+      whyHereIds: prev.whyHereIds.includes(reasonId)
+        ? prev.whyHereIds.filter((r) => r !== reasonId)
+        : prev.whyHereIds.length < 3
+          ? [...prev.whyHereIds, reasonId]
+          : prev.whyHereIds,
+    }));
+  };
+
   const handlePhotoChange = async (photoUrl) => {
     // Update photo immediately without needing to save the whole form
     try {
@@ -101,6 +127,11 @@ function Profile() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Convert whyHereIds to labels for display
+      const whyHereLabels = editData.whyHereIds.map(id =>
+        REASONS.find(r => r.id === id)?.label || id
+      );
+
       await updateUserProfile({
         profile: {
           ...userProfile.profile,
@@ -109,6 +140,8 @@ function Profile() {
           interests: editData.interests,
           preferences: editData.preferences,
           photoUrl: editData.photoUrl,
+          whyHere: whyHereLabels.join(', '),
+          whyHereIds: editData.whyHereIds,
         },
         extendedProfile: {
           ...userProfile.extendedProfile,
@@ -254,11 +287,57 @@ function Profile() {
 
         {/* Why Here */}
         <div className="p-6 border-b border-dark-600">
-          <h3 className="text-sm text-dark-300 mb-2 flex items-center gap-2">
-            <Users size={16} />
+          <h3 className="text-sm text-dark-300 mb-3 flex items-center gap-2">
+            <Heart size={16} />
             Looking for
+            {editing && <span className="text-dark-400">({editData.whyHereIds?.length || 0}/3)</span>}
           </h3>
-          <p>{displayProfile?.whyHere || 'Not specified'}</p>
+          {editing ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {REASONS.map((reason) => {
+                const isSelected = editData.whyHereIds?.includes(reason.id);
+                const isDisabled = !isSelected && (editData.whyHereIds?.length || 0) >= 3;
+
+                return (
+                  <button
+                    key={reason.id}
+                    onClick={() => toggleReason(reason.id)}
+                    disabled={isDisabled}
+                    className={`p-3 rounded-xl text-left transition-all duration-200 flex items-center gap-3 ${
+                      isSelected
+                        ? 'bg-primary-400/20 border-2 border-primary-400'
+                        : isDisabled
+                          ? 'bg-dark-700 border-2 border-transparent opacity-50 cursor-not-allowed'
+                          : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                    }`}
+                  >
+                    <span className="text-xl">{reason.icon}</span>
+                    <span className="flex-1 text-sm">{reason.label}</span>
+                    {isSelected && <Check size={16} className="text-primary-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {displayProfile?.whyHereIds?.length > 0 ? (
+                displayProfile.whyHereIds.map((id) => {
+                  const reason = REASONS.find((r) => r.id === id);
+                  return reason ? (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-400/20 text-primary-400 rounded-full text-sm"
+                    >
+                      <span>{reason.icon}</span>
+                      {reason.label}
+                    </span>
+                  ) : null;
+                })
+              ) : (
+                <p className="text-dark-400">{displayProfile?.whyHere || 'Not specified'}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Interests */}
@@ -298,21 +377,30 @@ function Profile() {
 
         {/* Preferences */}
         <div className="p-6">
-          <h3 className="text-sm text-dark-300 mb-4">Connection Preferences</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm text-dark-300">Connection Preferences</h3>
+            {editing && (
+              <span className="text-xs text-dark-400 flex items-center gap-1">
+                <Info size={12} />
+                Affects who you're matched with
+              </span>
+            )}
+          </div>
           {editing ? (
             <div className="space-y-6">
               {/* Geographic Preference */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <MapPinned size={18} className="text-primary-400" />
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🗺️</span>
                   <span className="text-sm font-medium">Where to connect</span>
                 </div>
+                <p className="text-xs text-dark-400 mb-3">You'll be matched with people from this area</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: 'local', label: 'Local', icon: '📍' },
-                    { value: 'regional', label: 'Regional', icon: '🗺️' },
-                    { value: 'global', label: 'Global', icon: '🌍' },
-                    { value: 'online-only', label: 'Online Only', icon: '💻' },
+                    { value: 'local', label: 'Local', icon: '🏠', desc: 'Same city' },
+                    { value: 'regional', label: 'Regional', icon: '🏙️', desc: 'Same country' },
+                    { value: 'global', label: 'Global', icon: '🌍', desc: 'Anywhere' },
+                    { value: 'online-only', label: 'Online Only', icon: '💻', desc: 'No preference' },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -322,14 +410,19 @@ function Profile() {
                           preferences: { ...editData.preferences, geographic: opt.value },
                         })
                       }
-                      className={`p-3 rounded-lg text-left transition-all flex items-center gap-2 ${
+                      className={`p-3 rounded-lg text-left transition-all ${
                         editData.preferences?.geographic === opt.value
                           ? 'bg-primary-400/20 border-2 border-primary-400'
                           : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
                       }`}
                     >
-                      <span>{opt.icon}</span>
-                      <span className="text-sm">{opt.label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{opt.icon}</span>
+                        <div>
+                          <span className="text-sm font-medium block">{opt.label}</span>
+                          <span className="text-xs text-dark-400">{opt.desc}</span>
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -337,16 +430,17 @@ function Profile() {
 
               {/* Age Range Preference */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock size={18} className="text-accent-400" />
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">📅</span>
                   <span className="text-sm font-medium">Age range</span>
                 </div>
+                <p className="text-xs text-dark-400 mb-3">Match with people within this age range of you</p>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { value: '±5', label: '± 5 years', icon: '👥' },
-                    { value: '±10', label: '± 10 years', icon: '👨‍👩‍👧' },
-                    { value: '±15', label: '± 15 years', icon: '👨‍👩‍👧‍👦' },
-                    { value: 'any', label: 'Any age', icon: '🌟' },
+                    { value: '±5', label: '± 5 years', icon: '🎯', desc: 'Close to my age' },
+                    { value: '±10', label: '± 10 years', icon: '📊', desc: 'Moderate range' },
+                    { value: '±15', label: '± 15 years', icon: '📈', desc: 'Wide range' },
+                    { value: 'any', label: 'Any age', icon: '♾️', desc: 'No limit' },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -356,14 +450,19 @@ function Profile() {
                           preferences: { ...editData.preferences, ageRange: opt.value },
                         })
                       }
-                      className={`p-3 rounded-lg text-left transition-all flex items-center gap-2 ${
+                      className={`p-3 rounded-lg text-left transition-all ${
                         editData.preferences?.ageRange === opt.value
                           ? 'bg-accent-400/20 border-2 border-accent-400'
                           : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
                       }`}
                     >
-                      <span>{opt.icon}</span>
-                      <span className="text-sm">{opt.label}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{opt.icon}</span>
+                        <div>
+                          <span className="text-sm font-medium block">{opt.label}</span>
+                          <span className="text-xs text-dark-400">{opt.desc}</span>
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -371,15 +470,16 @@ function Profile() {
 
               {/* Communication Preference */}
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <MessageCircle size={18} className="text-success-400" />
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">💬</span>
                   <span className="text-sm font-medium">Communication style</span>
                 </div>
+                <p className="text-xs text-dark-400 mb-3">How you prefer to chat with matches</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: 'text', label: 'Text', icon: '💬' },
-                    { value: 'voice', label: 'Voice', icon: '🎙️' },
-                    { value: 'both', label: 'Both', icon: '🗣️' },
+                    { value: 'text', label: 'Text', icon: '⌨️', desc: 'Messages' },
+                    { value: 'voice', label: 'Voice', icon: '🎤', desc: 'Calls' },
+                    { value: 'both', label: 'Both', icon: '📱', desc: 'Any' },
                   ].map((opt) => (
                     <button
                       key={opt.value}
@@ -406,8 +506,8 @@ function Profile() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg">
                 <span className="text-xl">
-                  {displayProfile?.preferences?.geographic === 'local' ? '📍' :
-                   displayProfile?.preferences?.geographic === 'regional' ? '🗺️' :
+                  {displayProfile?.preferences?.geographic === 'local' ? '🏠' :
+                   displayProfile?.preferences?.geographic === 'regional' ? '🏙️' :
                    displayProfile?.preferences?.geographic === 'online-only' ? '💻' : '🌍'}
                 </span>
                 <div>
@@ -419,9 +519,9 @@ function Profile() {
               </div>
               <div className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg">
                 <span className="text-xl">
-                  {displayProfile?.preferences?.ageRange === '±5' ? '👥' :
-                   displayProfile?.preferences?.ageRange === '±10' ? '👨‍👩‍👧' :
-                   displayProfile?.preferences?.ageRange === '±15' ? '👨‍👩‍👧‍👦' : '🌟'}
+                  {displayProfile?.preferences?.ageRange === '±5' ? '🎯' :
+                   displayProfile?.preferences?.ageRange === '±10' ? '📊' :
+                   displayProfile?.preferences?.ageRange === '±15' ? '📈' : '♾️'}
                 </span>
                 <div>
                   <p className="text-xs text-dark-400">Age Range</p>
@@ -433,8 +533,8 @@ function Profile() {
               </div>
               <div className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg">
                 <span className="text-xl">
-                  {displayProfile?.preferences?.communication === 'text' ? '💬' :
-                   displayProfile?.preferences?.communication === 'voice' ? '🎙️' : '🗣️'}
+                  {displayProfile?.preferences?.communication === 'text' ? '⌨️' :
+                   displayProfile?.preferences?.communication === 'voice' ? '🎤' : '📱'}
                 </span>
                 <div>
                   <p className="text-xs text-dark-400">Communication</p>
@@ -460,6 +560,7 @@ function Profile() {
                   interests: userProfile?.profile?.interests || [],
                   preferences: userProfile?.profile?.preferences || {},
                   photoUrl: userProfile?.profile?.photoUrl || null,
+                  whyHereIds: userProfile?.profile?.whyHereIds || [],
                 });
               }}
               className="btn-secondary flex-1"
