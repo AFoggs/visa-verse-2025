@@ -11,10 +11,12 @@ import {
   Sparkles,
   Users,
   Save,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../services/api';
 import LocationSearch from '../components/LocationSearch';
+import ProfilePhoto from '../components/ProfilePhoto';
 
 const INTERESTS = [
   'Technology', 'Gaming', 'Music', 'Movies', 'Travel', 'Fitness',
@@ -47,6 +49,7 @@ function Profile() {
           location: userProfile?.profile?.location || { city: '', country: '' },
           interests: userProfile?.profile?.interests || [],
           preferences: userProfile?.profile?.preferences || {},
+          photoUrl: userProfile?.profile?.photoUrl || null,
         });
         setLoading(false);
       } else {
@@ -75,6 +78,21 @@ function Profile() {
     }));
   };
 
+  const handlePhotoChange = async (photoUrl) => {
+    // Update photo immediately without needing to save the whole form
+    try {
+      await updateUserProfile({
+        profile: {
+          ...userProfile.profile,
+          photoUrl,
+        },
+      });
+      setEditData((prev) => ({ ...prev, photoUrl }));
+    } catch (error) {
+      console.error('Photo update error:', error);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -85,6 +103,7 @@ function Profile() {
           location: editData.location,
           interests: editData.interests,
           preferences: editData.preferences,
+          photoUrl: editData.photoUrl,
         },
         extendedProfile: {
           ...userProfile.extendedProfile,
@@ -149,9 +168,23 @@ function Profile() {
             </button>
           )}
 
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-4xl font-bold mx-auto mb-4">
-            {(editing ? editData.name : displayProfile?.name)?.charAt(0) || '?'}
+          <div className="flex justify-center mb-4">
+            <ProfilePhoto
+              userId={isOwnProfile ? user?.uid : userId}
+              photoUrl={editing ? editData.photoUrl : displayProfile?.photoUrl}
+              onPhotoChange={handlePhotoChange}
+              canEdit={isOwnProfile && editing}
+              isFriend={!isOwnProfile && profile.status === 'friends'}
+              size="lg"
+              name={editing ? editData.name : displayProfile?.name}
+            />
           </div>
+          {editing && (
+            <p className="text-dark-400 text-xs flex items-center justify-center gap-1 mb-4">
+              <Lock size={12} />
+              Your photo is only visible to friends
+            </p>
+          )}
 
           {editing ? (
             <input
@@ -294,6 +327,7 @@ function Profile() {
                   location: userProfile?.profile?.location || { city: '', country: '' },
                   interests: userProfile?.profile?.interests || [],
                   preferences: userProfile?.profile?.preferences || {},
+                  photoUrl: userProfile?.profile?.photoUrl || null,
                 });
               }}
               className="btn-secondary flex-1"
