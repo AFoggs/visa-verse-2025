@@ -56,7 +56,8 @@ visa-verse-2025/
 │   │   ├── context/
 │   │   │   ├── AuthContext.jsx            # Firebase auth state
 │   │   │   ├── NotificationContext.jsx    # Push notifications
-│   │   │   └── SocketContext.jsx          # WebSocket connection
+│   │   │   ├── SocketContext.jsx          # WebSocket connection
+│   │   │   └── ThemeContext.jsx           # Light/dark theme management
 │   │   ├── pages/
 │   │   │   ├── Chat.jsx                   # 1:1 messaging view
 │   │   │   ├── Companion.jsx              # AI companion chat
@@ -68,7 +69,7 @@ visa-verse-2025/
 │   │   │   ├── Onboarding.jsx             # New user profile setup
 │   │   │   ├── Profile.jsx                # User profile view/edit
 │   │   │   ├── Register.jsx
-│   │   │   └── Settings.jsx
+│   │   │   └── Settings.jsx               # Privacy, notifications, theme settings
 │   │   ├── services/
 │   │   │   ├── api.js                     # API client functions
 │   │   │   └── firebase.js                # Firebase client config
@@ -146,6 +147,22 @@ visa-verse-2025/
 - Input validation and sanitization
 - Rate limiting on API and sockets
 - Helmet.js security headers
+
+### 3.9 Settings & Preferences
+- **Privacy Settings**:
+  - Show/hide online status
+  - Show/hide location on profile
+  - Allow/block message requests
+  - Profile visibility (Everyone, Connections, Friends Only)
+- **Notification Settings**:
+  - Push notifications (browser)
+  - Email notifications
+  - Sound toggle
+  - Per-type toggles (messages, connections, friends, games)
+- **Theme**:
+  - Light/dark mode toggle
+  - Persists to localStorage
+  - Defaults to dark mode
 
 ---
 
@@ -313,7 +330,7 @@ VITE_API_URL=http://localhost:5000
 
 ### 8.5 State Management: React Context
 - **Rationale**: Simple, built-in, sufficient for current scale
-- **Contexts**: AuthContext, SocketContext, NotificationContext
+- **Contexts**: AuthContext, SocketContext, NotificationContext, ThemeContext
 
 ### 8.6 Connection Progression
 ```
@@ -370,6 +387,9 @@ npm run build         # Creates dist/ folder
 
 | Commit | Description |
 |--------|-------------|
+| `69e06a4` | Add complete Settings page with privacy, notifications, and theme toggle |
+| `9eefd06` | Remove Profile from nav bar (now only accessible via top-right icon) |
+| `f77ee48` | Add comprehensive PROJECT_STATE.md documentation |
 | `a448196` | Improve UX: first-person conversation starters, cleaner Show More button, universal profile viewing, header profile icon |
 
 ---
