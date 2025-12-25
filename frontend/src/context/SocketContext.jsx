@@ -23,35 +23,52 @@ export function SocketProvider({ children }) {
       return;
     }
 
-    // Connect to socket server
-    const newSocket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
-      auth: {
-        userId: user.uid,
-      },
-      transports: ['websocket', 'polling'],
-    });
+    // Get auth token and connect to socket server
+    const connectSocket = async () => {
+      try {
+        const token = await user.getIdToken();
 
-    newSocket.on('connect', () => {
-      console.log('Socket connected');
-      setConnected(true);
-      // Join user-specific room for global notifications
-      newSocket.emit('join_user_room', { userId: user.uid });
-    });
+        const newSocket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+          auth: {
+            userId: user.uid,
+            token: token,
+          },
+          transports: ['websocket', 'polling'],
+        });
 
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
-      setConnected(false);
-    });
+        newSocket.on('connect', () => {
+          console.log('Socket connected');
+          setConnected(true);
+          // Join user-specific room for global notifications
+          newSocket.emit('join_user_room', { userId: user.uid });
+        });
 
-    newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      setConnected(false);
-    });
+        newSocket.on('disconnect', () => {
+          console.log('Socket disconnected');
+          setConnected(false);
+        });
 
-    setSocket(newSocket);
+        newSocket.on('connect_error', (error) => {
+          console.error('Socket connection error:', error.message);
+          setConnected(false);
+        });
+
+        newSocket.on('error', (error) => {
+          console.error('Socket error:', error.message);
+        });
+
+        setSocket(newSocket);
+      } catch (error) {
+        console.error('Failed to get auth token for socket:', error);
+      }
+    };
+
+    connectSocket();
 
     return () => {
-      newSocket.disconnect();
+      if (socket) {
+        socket.disconnect();
+      }
     };
   }, [user]);
 

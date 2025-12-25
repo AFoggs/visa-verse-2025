@@ -224,6 +224,17 @@ router.post('/:matchId/move', async (req, res) => {
 
     const db = getDb();
 
+    // Verify user is part of this match
+    const matchDoc = await db.collection('matches').doc(matchId).get();
+    if (!matchDoc.exists) {
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    const matchData = matchDoc.data();
+    if (matchData.user1Id !== req.user.uid && matchData.user2Id !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     // Get conversation with game state
     const convDoc = await db.collection('conversations').doc(matchId).get();
     if (!convDoc.exists) {
@@ -289,9 +300,20 @@ router.get('/:matchId/state', async (req, res) => {
     const { matchId } = req.params;
     const db = getDb();
 
+    // Verify user is part of this match
+    const matchDoc = await db.collection('matches').doc(matchId).get();
+    if (!matchDoc.exists) {
+      return res.status(404).json({ error: 'Match not found', gameState: null });
+    }
+
+    const matchData = matchDoc.data();
+    if (matchData.user1Id !== req.user.uid && matchData.user2Id !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied', gameState: null });
+    }
+
     const convDoc = await db.collection('conversations').doc(matchId).get();
     if (!convDoc.exists) {
-      return res.json({ gameState: null });
+      return res.json({ gameState: null, message: 'No active game' });
     }
 
     res.json({ gameState: convDoc.data().gameState || null });

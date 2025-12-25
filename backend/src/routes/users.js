@@ -216,6 +216,15 @@ router.get('/:userId', async (req, res) => {
     const { userId } = req.params;
     const db = getDb();
 
+    // Allow users to view their own profile
+    if (userId === req.user.uid) {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (!userDoc.exists) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      return res.json({ user: userDoc.data() });
+    }
+
     const userDoc = await db.collection('users').doc(userId).get();
 
     if (!userDoc.exists) {
@@ -226,8 +235,29 @@ router.get('/:userId', async (req, res) => {
     const currentUserDoc = await db.collection('users').doc(req.user.uid).get();
     const currentUser = currentUserDoc.data();
 
-    // Check if they are friends
+    // Check if they are friends or connections
     const areFriends = currentUser?.connections?.friends?.includes(userId);
+    const areConnections = currentUser?.connections?.connections?.includes(userId);
+
+    // Only allow viewing profiles of friends or connections (or matched users)
+    if (!areFriends && !areConnections) {
+      // Check if there's a match between these users
+      const matches1 = await db.collection('matches')
+        .where('user1Id', '==', req.user.uid)
+        .where('user2Id', '==', userId)
+        .limit(1)
+        .get();
+
+      const matches2 = await db.collection('matches')
+        .where('user1Id', '==', userId)
+        .where('user2Id', '==', req.user.uid)
+        .limit(1)
+        .get();
+
+      if (matches1.empty && matches2.empty) {
+        return res.status(403).json({ error: 'You can only view profiles of your connections' });
+      }
+    }
 
     // Prepare response based on relationship
     const profile = {
@@ -238,11 +268,12 @@ router.get('/:userId', async (req, res) => {
         location: userData.profile?.location,
         whyHere: userData.profile?.whyHere,
         interests: userData.profile?.interests,
+        preferences: userData.profile?.preferences,
       },
       status: areFriends ? 'friends' : 'connection',
     };
 
-    // Include extended profile for friends
+    // Include extended profile for friends only
     if (areFriends) {
       profile.extendedProfile = userData.extendedProfile;
     }
@@ -259,6 +290,43 @@ router.put('/profile', async (req, res) => {
   try {
     const db = getDb();
     const updates = req.body;
+
+    // Size limits for validation
+    const MAX_NAME_LENGTH = 100;
+    const MAX_BIO_LENGTH = 500;
+    const MAX_INTERESTS = 10;
+    const MAX_INTEREST_LENGTH = 50;
+    const MAX_WHY_HERE_LENGTH = 500;
+
+    // Validate profile fields
+    if (updates.profile) {
+      if (updates.profile.name && updates.profile.name.length > MAX_NAME_LENGTH) {
+        return res.status(400).json({ error: `Name must be ${MAX_NAME_LENGTH} characters or less` });
+      }
+      if (updates.profile.whyHere && updates.profile.whyHere.length > MAX_WHY_HERE_LENGTH) {
+        return res.status(400).json({ error: `Why here must be ${MAX_WHY_HERE_LENGTH} characters or less` });
+      }
+      if (updates.profile.interests) {
+        if (!Array.isArray(updates.profile.interests)) {
+          return res.status(400).json({ error: 'Interests must be an array' });
+        }
+        if (updates.profile.interests.length > MAX_INTERESTS) {
+          return res.status(400).json({ error: `Maximum ${MAX_INTERESTS} interests allowed` });
+        }
+        for (const interest of updates.profile.interests) {
+          if (typeof interest !== 'string' || interest.length > MAX_INTEREST_LENGTH) {
+            return res.status(400).json({ error: `Each interest must be a string of ${MAX_INTEREST_LENGTH} characters or less` });
+          }
+        }
+      }
+    }
+
+    // Validate extended profile
+    if (updates.extendedProfile) {
+      if (updates.extendedProfile.bio && updates.extendedProfile.bio.length > MAX_BIO_LENGTH) {
+        return res.status(400).json({ error: `Bio must be ${MAX_BIO_LENGTH} characters or less` });
+      }
+    }
 
     // Only allow updating certain fields
     const allowedFields = ['profile', 'extendedProfile'];

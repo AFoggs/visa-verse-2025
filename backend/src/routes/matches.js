@@ -460,60 +460,91 @@ router.post('/:matchId/accept-friend', async (req, res) => {
     const { matchId } = req.params;
     const db = getDb();
 
-    const matchDoc = await db.collection('matches').doc(matchId).get();
+    // Use a transaction to ensure atomicity and prevent race conditions
+    const result = await db.runTransaction(async (transaction) => {
+      const matchRef = db.collection('matches').doc(matchId);
+      const matchDoc = await transaction.get(matchRef);
 
-    if (!matchDoc.exists) {
+      if (!matchDoc.exists) {
+        throw new Error('Match not found');
+      }
+
+      const matchData = matchDoc.data();
+
+      // Verify user is part of this match
+      if (matchData.user1Id !== req.user.uid && matchData.user2Id !== req.user.uid) {
+        throw new Error('Access denied');
+      }
+
+      // Check if already friends
+      if (matchData.status === 'friends') {
+        return { success: true, newStatus: 'friends', message: 'Already friends' };
+      }
+
+      // Determine which user is accepting
+      const isUser1 = matchData.user1Id === req.user.uid;
+
+      // Check if other user requested
+      const otherRequested = matchData.friendRequestStatus?.[isUser1 ? 'user2Requested' : 'user1Requested'];
+
+      if (!otherRequested) {
+        throw new Error('No pending friend request to accept');
+      }
+
+      const currentUserId = req.user.uid;
+      const otherUserId = isUser1 ? matchData.user2Id : matchData.user1Id;
+
+      // Get both user documents within the transaction
+      const currentUserRef = db.collection('users').doc(currentUserId);
+      const otherUserRef = db.collection('users').doc(otherUserId);
+
+      const [currentUserDoc, otherUserDoc] = await Promise.all([
+        transaction.get(currentUserRef),
+        transaction.get(otherUserRef),
+      ]);
+
+      const currentFriends = currentUserDoc.data()?.connections?.friends || [];
+      const otherFriends = otherUserDoc.data()?.connections?.friends || [];
+      const currentConnections = currentUserDoc.data()?.connections?.connections || [];
+      const otherConnections = otherUserDoc.data()?.connections?.connections || [];
+
+      // Update match status
+      const requestField = isUser1 ? 'friendRequestStatus.user1Requested' : 'friendRequestStatus.user2Requested';
+      transaction.update(matchRef, {
+        [requestField]: true,
+        status: 'friends',
+      });
+
+      // Move from connections to friends for current user
+      transaction.update(currentUserRef, {
+        'connections.friends': [...new Set([...currentFriends, otherUserId])],
+        'connections.connections': currentConnections.filter(id => id !== otherUserId),
+      });
+
+      // Move from connections to friends for other user
+      transaction.update(otherUserRef, {
+        'connections.friends': [...new Set([...otherFriends, currentUserId])],
+        'connections.connections': otherConnections.filter(id => id !== currentUserId),
+      });
+
+      return { success: true, newStatus: 'friends' };
+    });
+
+    return res.json(result);
+  } catch (error) {
+    console.error('Accept friend error:', error);
+
+    // Handle specific error messages
+    if (error.message === 'Match not found') {
       return res.status(404).json({ error: 'Match not found' });
     }
-
-    const matchData = matchDoc.data();
-
-    // Verify user is part of this match
-    if (matchData.user1Id !== req.user.uid && matchData.user2Id !== req.user.uid) {
+    if (error.message === 'Access denied') {
       return res.status(403).json({ error: 'Access denied' });
     }
-
-    // Determine which user is accepting
-    const isUser1 = matchData.user1Id === req.user.uid;
-    const requestField = isUser1 ? 'friendRequestStatus.user1Requested' : 'friendRequestStatus.user2Requested';
-
-    // Check if other user requested
-    const otherRequested = matchData.friendRequestStatus?.[isUser1 ? 'user2Requested' : 'user1Requested'];
-
-    if (!otherRequested) {
+    if (error.message === 'No pending friend request to accept') {
       return res.status(400).json({ error: 'No pending friend request to accept' });
     }
 
-    // Mark as requested and upgrade to friends
-    await db.collection('matches').doc(matchId).update({
-      [requestField]: true,
-      status: 'friends',
-    });
-
-    // Update both users' connections
-    const currentUserDoc = await db.collection('users').doc(req.user.uid).get();
-    const otherUserId = isUser1 ? matchData.user2Id : matchData.user1Id;
-    const otherUserDoc = await db.collection('users').doc(otherUserId).get();
-
-    const currentFriends = currentUserDoc.data().connections?.friends || [];
-    const otherFriends = otherUserDoc.data().connections?.friends || [];
-    const currentConnections = currentUserDoc.data().connections?.connections || [];
-    const otherConnections = otherUserDoc.data().connections?.connections || [];
-
-    // Move from connections to friends
-    await db.collection('users').doc(req.user.uid).update({
-      'connections.friends': [...new Set([...currentFriends, otherUserId])],
-      'connections.connections': currentConnections.filter(id => id !== otherUserId),
-    });
-
-    await db.collection('users').doc(otherUserId).update({
-      'connections.friends': [...new Set([...otherFriends, req.user.uid])],
-      'connections.connections': otherConnections.filter(id => id !== req.user.uid),
-    });
-
-    return res.json({ success: true, newStatus: 'friends' });
-  } catch (error) {
-    console.error('Accept friend error:', error);
     res.status(500).json({ error: 'Failed to accept friend request' });
   }
 });

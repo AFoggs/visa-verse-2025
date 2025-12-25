@@ -50,8 +50,21 @@ router.post('/:matchId/message', async (req, res) => {
     const { matchId } = req.params;
     const { content, type = 'text' } = req.body;
 
-    if (!content) {
+    // Validate content
+    if (!content || typeof content !== 'string') {
       return res.status(400).json({ error: 'Message content is required' });
+    }
+
+    // Enforce message length limit
+    const MAX_MESSAGE_LENGTH = 5000;
+    if (content.length > MAX_MESSAGE_LENGTH) {
+      return res.status(400).json({ error: `Message must be ${MAX_MESSAGE_LENGTH} characters or less` });
+    }
+
+    // Validate type
+    const allowedTypes = ['text', 'ai-icebreaker', 'game-start', 'system'];
+    if (!allowedTypes.includes(type)) {
+      return res.status(400).json({ error: 'Invalid message type' });
     }
 
     const db = getDb();
@@ -70,7 +83,7 @@ router.post('/:matchId/message', async (req, res) => {
     const message = {
       messageId: uuidv4(),
       senderId: req.user.uid,
-      content,
+      content: content.slice(0, MAX_MESSAGE_LENGTH), // Enforce limit
       type,
       timestamp: new Date().toISOString(),
     };
@@ -80,8 +93,12 @@ router.post('/:matchId/message', async (req, res) => {
 
     if (convDoc.exists) {
       const currentMessages = convDoc.data().messages || [];
+      // Keep only last 500 messages to prevent unbounded growth
+      const MAX_MESSAGES = 500;
+      const updatedMessages = [...currentMessages, message].slice(-MAX_MESSAGES);
+
       await db.collection('conversations').doc(matchId).update({
-        messages: [...currentMessages, message],
+        messages: updatedMessages,
         updatedAt: new Date(),
       });
     } else {
@@ -94,11 +111,23 @@ router.post('/:matchId/message', async (req, res) => {
       });
     }
 
-    // Update connection metrics
-    await db.collection('matches').doc(matchId).update({
+    // Update connection metrics - only increment session count if last interaction was > 30 minutes ago
+    const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+    const lastInteraction = matchData.connectionMetrics?.lastInteraction?.toDate?.() ||
+                           matchData.connectionMetrics?.lastInteraction ||
+                           new Date(0);
+    const timeSinceLastInteraction = Date.now() - new Date(lastInteraction).getTime();
+    const isNewSession = timeSinceLastInteraction > SESSION_TIMEOUT;
+
+    const metricsUpdate = {
       'connectionMetrics.lastInteraction': new Date(),
-      'connectionMetrics.sessionCount': (matchData.connectionMetrics?.sessionCount || 0) + 1,
-    });
+    };
+
+    if (isNewSession) {
+      metricsUpdate['connectionMetrics.sessionCount'] = (matchData.connectionMetrics?.sessionCount || 0) + 1;
+    }
+
+    await db.collection('matches').doc(matchId).update(metricsUpdate);
 
     // Emit to socket if available
     const io = req.app.get('io');

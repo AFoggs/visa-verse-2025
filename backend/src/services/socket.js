@@ -1,13 +1,45 @@
-import { getDb } from '../config/firebase.js';
+import { getDb, getAuth } from '../config/firebase.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const connectedUsers = new Map();
 const roomUsers = new Map();
 const userSockets = new Map(); // Map userId to socket instances for global notifications
+const socketMessageCounts = new Map(); // Track message counts per socket for rate limiting
+const SOCKET_RATE_LIMIT = 30; // Max messages per window
+const SOCKET_RATE_WINDOW = 60000; // 1 minute window
 
 export function setupSocketHandlers(io) {
+  // Socket authentication middleware
+  io.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth.token;
+      const userId = socket.handshake.auth.userId;
+
+      if (!token || !userId) {
+        return next(new Error('Authentication required'));
+      }
+
+      // Verify Firebase token
+      const auth = getAuth();
+      const decodedToken = await auth.verifyIdToken(token);
+
+      // Verify the userId matches the token
+      if (decodedToken.uid !== userId) {
+        return next(new Error('User ID mismatch'));
+      }
+
+      // Attach verified user to socket
+      socket.userId = decodedToken.uid;
+      socket.userEmail = decodedToken.email;
+      next();
+    } catch (error) {
+      console.error('Socket authentication error:', error.message);
+      next(new Error('Invalid or expired token'));
+    }
+  });
+
   io.on('connection', (socket) => {
-    const userId = socket.handshake.auth.userId;
+    const userId = socket.userId; // Use verified userId from middleware
     console.log(`User connected: ${userId}`);
 
     // Store user connection
@@ -45,10 +77,48 @@ export function setupSocketHandlers(io) {
 
     // Send a message
     socket.on('send_message', async ({ roomId, senderId, content, type }) => {
+      // Rate limiting check
+      const now = Date.now();
+      const socketKey = socket.id;
+      const rateData = socketMessageCounts.get(socketKey) || { count: 0, windowStart: now };
+
+      if (now - rateData.windowStart > SOCKET_RATE_WINDOW) {
+        // Reset window
+        rateData.count = 0;
+        rateData.windowStart = now;
+      }
+
+      rateData.count++;
+      socketMessageCounts.set(socketKey, rateData);
+
+      if (rateData.count > SOCKET_RATE_LIMIT) {
+        socket.emit('error', { message: 'Rate limit exceeded. Please slow down.' });
+        return;
+      }
+
+      // Validate senderId matches authenticated user
+      if (senderId !== socket.userId) {
+        socket.emit('error', { message: 'Unauthorized sender' });
+        return;
+      }
+
+      // Validate content
+      if (!content || typeof content !== 'string') {
+        socket.emit('error', { message: 'Invalid message content' });
+        return;
+      }
+
+      // Limit message length
+      const MAX_MESSAGE_LENGTH = 5000;
+      if (content.length > MAX_MESSAGE_LENGTH) {
+        socket.emit('error', { message: 'Message too long' });
+        return;
+      }
+
       const message = {
         messageId: uuidv4(),
         senderId,
-        content,
+        content: content.slice(0, MAX_MESSAGE_LENGTH), // Enforce limit
         type: type || 'text',
         timestamp: new Date().toISOString(),
       };
@@ -69,6 +139,13 @@ export function setupSocketHandlers(io) {
 
         if (matchDoc.exists) {
           const matchData = matchDoc.data();
+
+          // Verify sender is part of this match
+          if (matchData.user1Id !== senderId && matchData.user2Id !== senderId) {
+            socket.emit('error', { message: 'Access denied to this room' });
+            return;
+          }
+
           const senderName = senderDoc.exists ? senderDoc.data().profile?.name || 'Someone' : 'Someone';
 
           // Find the other participant
@@ -79,7 +156,7 @@ export function setupSocketHandlers(io) {
             roomId,
             senderId,
             senderName,
-            content,
+            content: content.slice(0, 100), // Truncate for notification
             type: type || 'text',
             timestamp: message.timestamp,
           });
@@ -88,26 +165,31 @@ export function setupSocketHandlers(io) {
         console.error('Error sending global notification:', notifyError);
       }
 
-      // Save to database
+      // Save to database with message limit
       try {
         const db = getDb();
-        await db.collection('conversations').doc(roomId).update({
-          messages: require('firebase-admin').firestore.FieldValue.arrayUnion(message),
-          updatedAt: new Date(),
-        });
-      } catch (error) {
-        // If conversation doesn't exist, create it
-        try {
-          const db = getDb();
+        const convDoc = await db.collection('conversations').doc(roomId).get();
+
+        if (convDoc.exists) {
+          const currentMessages = convDoc.data().messages || [];
+          // Keep only last 500 messages to prevent unbounded growth
+          const MAX_MESSAGES = 500;
+          const updatedMessages = [...currentMessages, message].slice(-MAX_MESSAGES);
+
+          await db.collection('conversations').doc(roomId).update({
+            messages: updatedMessages,
+            updatedAt: new Date(),
+          });
+        } else {
           await db.collection('conversations').doc(roomId).set({
             conversationId: roomId,
             messages: [message],
             createdAt: new Date(),
             updatedAt: new Date(),
           });
-        } catch (createError) {
-          console.error('Error saving message:', createError);
         }
+      } catch (error) {
+        console.error('Error saving message:', error);
       }
     });
 
@@ -146,6 +228,7 @@ export function setupSocketHandlers(io) {
       console.log(`User disconnected: ${userId}`);
       connectedUsers.delete(userId);
       userSockets.delete(userId);
+      socketMessageCounts.delete(socket.id); // Clean up rate limit data
 
       // Remove from all rooms
       roomUsers.forEach((users, roomId) => {
