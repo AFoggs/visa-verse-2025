@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -18,6 +18,7 @@ import { userApi, matchesApi } from '../services/api';
 import { useNotifications } from '../context/NotificationContext';
 
 function Friends() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('connections');
   const [friends, setFriends] = useState([]);
   const [connections, setConnections] = useState([]);
@@ -265,7 +266,12 @@ function Friends() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="card-hover flex items-center gap-4"
+                className={`card-hover flex items-center gap-4 ${!isRequest && !isSent ? 'cursor-pointer' : ''}`}
+                onClick={() => {
+                  if (!isRequest && !isSent) {
+                    navigate(`/chat/${item.matchId}`);
+                  }
+                }}
               >
                 {/* Avatar */}
                 <div className="relative">
@@ -319,7 +325,10 @@ function Friends() {
                 {isRequest && (
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleAccept(item.matchId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAccept(item.matchId);
+                      }}
                       disabled={actionLoading === item.matchId}
                       className="btn-success px-3 py-2 flex items-center gap-1"
                     >
@@ -333,7 +342,10 @@ function Friends() {
                       )}
                     </button>
                     <button
-                      onClick={() => handleDecline(item.matchId, user.userId)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDecline(item.matchId, user.userId);
+                      }}
                       disabled={actionLoading === item.matchId}
                       className="btn-secondary px-3 py-2 flex items-center gap-1"
                     >
@@ -351,10 +363,7 @@ function Friends() {
 
                 {/* Compatibility & Chat link for connections/friends */}
                 {!isRequest && !isSent && (
-                  <Link
-                    to={`/chat/${item.matchId}`}
-                    className="flex flex-col items-end relative"
-                  >
+                  <div className="flex flex-col items-end relative">
                     {getUnreadCount(item.matchId) > 0 && (
                       <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1.5 bg-error-400 rounded-full text-xs flex items-center justify-center text-white font-medium animate-pulse">
                         {getUnreadCount(item.matchId) > 99 ? '99+' : getUnreadCount(item.matchId)}
@@ -369,7 +378,7 @@ function Friends() {
                         {item.connectionMetrics.sessionCount} sessions
                       </p>
                     )}
-                  </Link>
+                  </div>
                 )}
               </motion.div>
             );

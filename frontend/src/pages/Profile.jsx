@@ -400,7 +400,7 @@ function Profile() {
                   }}
                   className="text-primary-400 text-sm hover:underline"
                 >
-                  + See more interests
+                  + Show more interests
                 </button>
               ) : (
                 <>
@@ -620,7 +620,8 @@ function Profile() {
                 <div>
                   <p className="text-xs text-dark-400">Communication</p>
                   <p className="capitalize text-sm font-medium">
-                    {displayProfile?.preferences?.communication || 'Both'}
+                    {displayProfile?.preferences?.communication === 'text' ? 'Text' :
+                     displayProfile?.preferences?.communication === 'voice' ? 'Voice' : 'Text & Voice'}
                   </p>
                 </div>
               </div>
