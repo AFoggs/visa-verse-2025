@@ -1,10 +1,8 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
   Home,
-  MessageCircle,
   Users,
   Compass,
-  User,
   Settings,
   LogOut,
   Sparkles,
@@ -24,7 +22,6 @@ function MainLayout() {
     { path: '/companion', icon: Sparkles, label: 'Companion' },
     { path: '/discover', icon: Compass, label: 'Discover' },
     { path: '/friends', icon: Users, label: 'Friends', showBadge: true },
-    { path: '/profile', icon: User, label: 'Profile' },
   ];
 
   const handleLogout = async () => {
