@@ -120,6 +120,27 @@ export function setupSocketHandlers(io) {
       socket.to(roomId).emit('typing_stop', { roomId, userId: uid });
     });
 
+    // Voice call signaling
+    socket.on('voice_call_offer', ({ roomId, offer, callerId }) => {
+      socket.to(roomId).emit('voice_call_offer', { offer, callerId });
+    });
+
+    socket.on('voice_call_answer', ({ roomId, answer }) => {
+      socket.to(roomId).emit('voice_call_answer', { answer });
+    });
+
+    socket.on('voice_ice_candidate', ({ roomId, candidate }) => {
+      socket.to(roomId).emit('voice_ice_candidate', { candidate });
+    });
+
+    socket.on('voice_call_end', ({ roomId }) => {
+      socket.to(roomId).emit('voice_call_end', {});
+    });
+
+    socket.on('voice_call_decline', ({ roomId }) => {
+      socket.to(roomId).emit('voice_call_decline', {});
+    });
+
     // Handle disconnect
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${userId}`);

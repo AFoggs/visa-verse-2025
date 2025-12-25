@@ -62,6 +62,18 @@ router.post('/:matchId/start', async (req, res) => {
         };
         break;
 
+      case 'would_you_rather':
+        // Get a random prompt
+        const prompt = getRandomWouldYouRatherPrompt();
+        gameState = {
+          type: 'would_you_rather',
+          status: 'choosing',
+          prompt,
+          choices: {},
+          round: 1,
+        };
+        break;
+
       default:
         return res.status(400).json({ error: 'Invalid game type' });
     }
@@ -141,6 +153,10 @@ router.post('/:matchId/move', async (req, res) => {
 
       case 'word_association':
         updatedGameState = handleWordAssociationMove(gameState, req.user.uid, move);
+        break;
+
+      case 'would_you_rather':
+        updatedGameState = handleWouldYouRatherMove(gameState, req.user.uid, move);
         break;
 
       default:
@@ -276,6 +292,72 @@ function handleWordAssociationMove(gameState, playerId, move) {
   }
 
   return newState;
+}
+
+function handleWouldYouRatherMove(gameState, playerId, move) {
+  const newState = { ...gameState };
+
+  if (move.type === 'choose') {
+    newState.choices = { ...newState.choices, [playerId]: move.choice };
+
+    // Check if both players have chosen
+    const numChoices = Object.keys(newState.choices).length;
+    if (numChoices === 2) {
+      newState.status = 'revealed';
+    }
+  } else if (move.type === 'next_prompt') {
+    // Start a new round with a fresh prompt
+    const newPrompt = getRandomWouldYouRatherPrompt();
+    newState.prompt = newPrompt;
+    newState.choices = {};
+    newState.status = 'choosing';
+    newState.round = (newState.round || 1) + 1;
+  }
+
+  return newState;
+}
+
+// Would You Rather prompts collection
+const WOULD_YOU_RATHER_PROMPTS = [
+  { optionA: 'Be able to fly', optionB: 'Be able to read minds' },
+  { optionA: 'Live in a treehouse', optionB: 'Live in a houseboat' },
+  { optionA: 'Only eat pizza forever', optionB: 'Never eat pizza again' },
+  { optionA: 'Travel to the past', optionB: 'Travel to the future' },
+  { optionA: 'Be invisible', optionB: 'Be able to teleport' },
+  { optionA: 'Always be 10 minutes late', optionB: 'Always be 20 minutes early' },
+  { optionA: 'Have no internet for a month', optionB: 'Have no phone for a month' },
+  { optionA: 'Live without music', optionB: 'Live without movies' },
+  { optionA: 'Be famous but unhappy', optionB: 'Be unknown but happy' },
+  { optionA: 'Have a personal chef', optionB: 'Have a personal driver' },
+  { optionA: 'Speak every language', optionB: 'Play every instrument' },
+  { optionA: 'Live in the city', optionB: 'Live in the countryside' },
+  { optionA: 'Have unlimited money', optionB: 'Have unlimited time' },
+  { optionA: 'Be extremely lucky', optionB: 'Be extremely talented' },
+  { optionA: 'Know how you die', optionB: 'Know when you die' },
+  { optionA: 'Have a rewind button for life', optionB: 'Have a pause button for life' },
+  { optionA: 'Be able to talk to animals', optionB: 'Speak all human languages' },
+  { optionA: 'Never have to sleep', optionB: 'Never have to eat' },
+  { optionA: 'Live in a world without seasons', optionB: 'Live in perpetual autumn' },
+  { optionA: 'Have super strength', optionB: 'Have super speed' },
+  { optionA: 'Always know when people are lying', optionB: 'Always get away with lying' },
+  { optionA: 'Be the funniest person in the room', optionB: 'Be the smartest person in the room' },
+  { optionA: 'Have a pause button for conversations', optionB: 'Have an undo button for texts' },
+  { optionA: 'Only use email to communicate', optionB: 'Only use phone calls to communicate' },
+  { optionA: 'Be able to remember everything', optionB: 'Be able to forget anything' },
+  { optionA: 'Live in the Harry Potter universe', optionB: 'Live in the Star Wars universe' },
+  { optionA: 'Have a pet dragon', optionB: 'Have a pet unicorn' },
+  { optionA: 'Be stuck in a rom-com', optionB: 'Be stuck in an action movie' },
+  { optionA: 'Always have perfect hair', optionB: 'Always have perfect skin' },
+  { optionA: 'Win the lottery once', optionB: 'Live twice as long' },
+  { optionA: 'Be a famous actor', optionB: 'Be a famous musician' },
+  { optionA: 'Have your dream job but low salary', optionB: 'Have a boring job with high salary' },
+  { optionA: 'Never be stuck in traffic', optionB: 'Never wait in line' },
+  { optionA: 'Know all conspiracy theories are true', optionB: 'Know none of them are true' },
+  { optionA: 'Have a magic carpet', optionB: 'Have a self-driving car' },
+];
+
+function getRandomWouldYouRatherPrompt() {
+  return WOULD_YOU_RATHER_PROMPTS[Math.floor(Math.random() * WOULD_YOU_RATHER_PROMPTS.length)];
 }
 
 export default router;

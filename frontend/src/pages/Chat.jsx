@@ -18,11 +18,17 @@ import {
   Dice5,
   HelpCircle,
   MessageCircle,
+  Phone,
+  PhoneOff,
+  MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useNotifications } from '../context/NotificationContext';
-import { chatApi, matchesApi, gamesApi } from '../services/api';
+import { chatApi, matchesApi, gamesApi, userApi } from '../services/api';
+import GameContainer from '../components/games/GameContainer';
+import VoiceCall from '../components/VoiceCall';
 
 function Chat() {
   const { matchId } = useParams();
@@ -44,6 +50,12 @@ function Chat() {
   const [rating, setRating] = useState(0);
   const [listening, setListening] = useState(false);
   const [loadingIcebreakers, setLoadingIcebreakers] = useState(false);
+  const [gameState, setGameState] = useState(null);
+  const [showGame, setShowGame] = useState(false);
+  const [showVoiceCall, setShowVoiceCall] = useState(false);
+  const [communicationMode, setCommunicationMode] = useState('both'); // 'text', 'voice', 'both'
+  const [myPreference, setMyPreference] = useState('both');
+  const [theirPreference, setTheirPreference] = useState('both');
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -57,19 +69,54 @@ function Chat() {
     scrollToBottom();
   }, [messages]);
 
+  // Determine communication mode based on both users' preferences
+  const determineCommunicationMode = (myPref, theirPref) => {
+    // If either user wants text-only, use text
+    if (myPref === 'text' || theirPref === 'text') {
+      // But if the other wants voice-only, we have a conflict - default to text
+      if ((myPref === 'text' && theirPref === 'voice') ||
+          (myPref === 'voice' && theirPref === 'text')) {
+        return 'conflict'; // They need to negotiate
+      }
+      return 'text';
+    }
+    // If either user wants voice-only, use voice
+    if (myPref === 'voice' || theirPref === 'voice') {
+      return 'voice';
+    }
+    // Both are fine with both
+    return 'both';
+  };
+
   // Load match and conversation data
   useEffect(() => {
     async function loadData() {
       try {
-        const [matchData, conversationData, icebreakersData] = await Promise.all([
+        const [matchData, conversationData, icebreakersData, gameData, myProfile] = await Promise.all([
           matchesApi.getMatch(matchId),
           chatApi.getConversation(matchId),
           chatApi.getIcebreakers(matchId).catch(() => ({ icebreakers: [] })),
+          gamesApi.getGameState(matchId).catch(() => ({ gameState: null })),
+          userApi.getMe().catch(() => ({ profile: { preferences: { communication: 'both' } } })),
         ]);
 
         setMatch(matchData.match);
         setMessages(conversationData.messages || []);
         setIcebreakers(icebreakersData.icebreakers || []);
+
+        // Get communication preferences
+        const myCommPref = myProfile?.profile?.preferences?.communication || 'both';
+        const theirCommPref = matchData.match?.otherUser?.preferences?.communication || 'both';
+
+        setMyPreference(myCommPref);
+        setTheirPreference(theirCommPref);
+        setCommunicationMode(determineCommunicationMode(myCommPref, theirCommPref));
+
+        // Check for active game
+        if (gameData.gameState && gameData.gameState.status !== 'complete') {
+          setGameState(gameData.gameState);
+          setShowGame(true);
+        }
       } catch (error) {
         console.error('Error loading chat:', error);
         navigate('/dashboard');
@@ -125,14 +172,32 @@ function Chat() {
       }
     };
 
+    const handleGameStarted = (data) => {
+      if (data.matchId === matchId) {
+        setGameState(data.gameState);
+        setShowGame(true);
+        setShowGames(false);
+      }
+    };
+
+    const handleGameMove = (data) => {
+      if (data.matchId === matchId) {
+        setGameState(data.gameState);
+      }
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('typing_start', handleTypingStart);
     socket.on('typing_stop', handleTypingStop);
+    socket.on('game_started', handleGameStarted);
+    socket.on('game_move', handleGameMove);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('typing_start', handleTypingStart);
       socket.off('typing_stop', handleTypingStop);
+      socket.off('game_started', handleGameStarted);
+      socket.off('game_move', handleGameMove);
     };
   }, [socket, matchId, user]);
 
@@ -247,7 +312,9 @@ function Chat() {
 
   const startGame = async (gameType) => {
     try {
-      await gamesApi.startGame(matchId, gameType);
+      const result = await gamesApi.startGame(matchId, gameType);
+      setGameState(result.gameState);
+      setShowGame(true);
       setShowMenu(false);
       setShowGames(false);
       // Send a system message about game start
@@ -258,6 +325,15 @@ function Chat() {
     } catch (error) {
       console.error('Start game error:', error);
     }
+  };
+
+  const handleGameUpdate = (newGameState) => {
+    setGameState(newGameState);
+  };
+
+  const handleCloseGame = () => {
+    setShowGame(false);
+    // Keep gameState in case they want to resume
   };
 
   const refreshIcebreakers = async () => {
@@ -319,6 +395,17 @@ function Chat() {
             </div>
           </Link>
 
+          {/* Voice call button - only if mode allows */}
+          {(communicationMode === 'voice' || communicationMode === 'both') && (
+            <button
+              onClick={() => setShowVoiceCall(!showVoiceCall)}
+              className={`btn-ghost p-2 ${showVoiceCall ? 'text-success-400' : 'text-dark-300'}`}
+              title="Voice call"
+            >
+              <Phone size={24} />
+            </button>
+          )}
+
           <div className="relative">
             <button onClick={() => setShowMenu(!showMenu)} className="btn-ghost p-2">
               <MoreVertical size={24} />
@@ -377,6 +464,50 @@ function Chat() {
         </div>
       </div>
 
+      {/* Communication Mode Banner */}
+      {communicationMode === 'conflict' && (
+        <div className="bg-amber-400/10 border-b border-amber-400/30 px-4 py-2">
+          <div className="flex items-center gap-2 text-amber-400 text-sm">
+            <AlertTriangle size={16} />
+            <span>
+              Communication preference conflict: You prefer {myPreference}, they prefer {theirPreference}.
+              Defaulting to text chat.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {communicationMode === 'voice' && (
+        <div className="bg-primary-400/10 border-b border-primary-400/30 px-4 py-2">
+          <div className="flex items-center gap-2 text-primary-400 text-sm">
+            <Phone size={16} />
+            <span>Voice-only mode: Use the phone button to start a call</span>
+          </div>
+        </div>
+      )}
+
+      {/* Voice Call Panel */}
+      <AnimatePresence>
+        {showVoiceCall && socket && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-dark-700/50 border-b border-dark-600 overflow-hidden"
+          >
+            <div className="px-4 py-4">
+              <VoiceCall
+                socket={socket}
+                matchId={matchId}
+                userId={user?.uid}
+                otherUserName={otherUser?.name || 'Other User'}
+                onClose={() => setShowVoiceCall(false)}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Icebreakers */}
       {(icebreakers.length > 0 || messages.length === 0) && (
         <div className="bg-dark-700/30 px-4 py-3 border-b border-dark-600">
@@ -415,7 +546,28 @@ function Chat() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="max-w-3xl mx-auto space-y-4">
-          {messages.length === 0 && (
+          {/* Active Game */}
+          <AnimatePresence>
+            {showGame && gameState && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="mb-4"
+              >
+                <GameContainer
+                  matchId={matchId}
+                  gameState={gameState}
+                  userId={user?.uid}
+                  otherUserName={otherUser?.name || 'Other Player'}
+                  onGameUpdate={handleGameUpdate}
+                  onClose={handleCloseGame}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {messages.length === 0 && !showGame && (
             <div className="text-center py-12">
               <Sparkles className="mx-auto text-dark-400 mb-3" size={48} />
               <p className="text-dark-300">Start a conversation!</p>
@@ -529,39 +681,68 @@ function Chat() {
 
       {/* Input */}
       <div className="bg-dark-700/50 border-t border-dark-600 px-4 py-4">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex gap-2">
-          {/* Games Button */}
-          <button
-            type="button"
-            onClick={() => setShowGames(!showGames)}
-            className={`btn-ghost p-3 ${showGames ? 'text-success-400' : 'text-dark-300'}`}
-            title="Play a game"
-          >
-            <Gamepad2 size={24} />
-          </button>
-
-          {recognitionRef.current && (
+        {/* Voice-only mode message */}
+        {communicationMode === 'voice' ? (
+          <div className="max-w-3xl mx-auto text-center py-2">
+            <p className="text-dark-400 text-sm mb-2">
+              Voice-only mode active. Use the phone button above to call.
+            </p>
+            <button
+              onClick={() => setShowVoiceCall(true)}
+              className="btn-primary flex items-center gap-2 mx-auto"
+            >
+              <Phone size={18} />
+              Start Voice Call
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex gap-2">
+            {/* Games Button */}
             <button
               type="button"
-              onClick={toggleListening}
-              className={`btn-ghost p-3 ${listening ? 'text-red-400' : 'text-dark-300'}`}
+              onClick={() => setShowGames(!showGames)}
+              className={`btn-ghost p-3 ${showGames ? 'text-success-400' : 'text-dark-300'}`}
+              title="Play a game"
             >
-              {listening ? <MicOff size={24} /> : <Mic size={24} />}
+              <Gamepad2 size={24} />
             </button>
-          )}
 
-          <input
-            type="text"
-            value={input}
-            onChange={handleInputChange}
-            placeholder="Type a message..."
-            className="input flex-1"
-          />
+            {/* Voice call button for both mode */}
+            {communicationMode === 'both' && (
+              <button
+                type="button"
+                onClick={() => setShowVoiceCall(!showVoiceCall)}
+                className={`btn-ghost p-3 ${showVoiceCall ? 'text-success-400' : 'text-dark-300'}`}
+                title="Voice call"
+              >
+                <Phone size={24} />
+              </button>
+            )}
 
-          <button type="submit" disabled={!input.trim() || sending} className="btn-primary p-3">
-            <Send size={24} />
-          </button>
-        </form>
+            {recognitionRef.current && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={`btn-ghost p-3 ${listening ? 'text-red-400' : 'text-dark-300'}`}
+                title={listening ? 'Stop listening' : 'Voice input'}
+              >
+                {listening ? <MicOff size={24} /> : <Mic size={24} />}
+              </button>
+            )}
+
+            <input
+              type="text"
+              value={input}
+              onChange={handleInputChange}
+              placeholder="Type a message..."
+              className="input flex-1"
+            />
+
+            <button type="submit" disabled={!input.trim() || sending} className="btn-primary p-3">
+              <Send size={24} />
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Rating Modal */}
