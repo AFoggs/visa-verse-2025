@@ -7,26 +7,59 @@
     @apply scroll-smooth;
   }
 
+  /* Default body styles */
   body {
-    @apply bg-dark-800 text-white antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    @apply antialiased transition-colors duration-200;
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
+  /* Dark mode (default) */
+  html.dark body,
+  html:not(.light) body {
+    @apply bg-dark-800 text-white;
+  }
+
+  /* Light mode */
+  html.light body {
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  /* Custom scrollbar - Dark */
+  html.dark ::-webkit-scrollbar,
+  html:not(.light) ::-webkit-scrollbar {
     @apply w-2;
   }
 
-  ::-webkit-scrollbar-track {
+  html.dark ::-webkit-scrollbar-track,
+  html:not(.light) ::-webkit-scrollbar-track {
     @apply bg-dark-700 rounded-full;
   }
 
-  ::-webkit-scrollbar-thumb {
+  html.dark ::-webkit-scrollbar-thumb,
+  html:not(.light) ::-webkit-scrollbar-thumb {
     @apply bg-dark-500 rounded-full;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
+  html.dark ::-webkit-scrollbar-thumb:hover,
+  html:not(.light) ::-webkit-scrollbar-thumb:hover {
     @apply bg-dark-400;
+  }
+
+  /* Custom scrollbar - Light */
+  html.light ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  html.light ::-webkit-scrollbar-track {
+    @apply bg-gray-200 rounded-full;
+  }
+
+  html.light ::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded-full;
+  }
+
+  html.light ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500;
   }
 }
 
@@ -42,8 +75,16 @@
   }
 
   .btn-secondary {
-    @apply btn bg-dark-600 text-white hover:bg-dark-500
-           active:bg-dark-400 border border-dark-500;
+    @apply btn border transition-colors;
+  }
+
+  html.dark .btn-secondary,
+  html:not(.light) .btn-secondary {
+    @apply bg-dark-600 text-white hover:bg-dark-500 active:bg-dark-400 border-dark-500;
+  }
+
+  html.light .btn-secondary {
+    @apply bg-gray-100 text-gray-900 hover:bg-gray-200 active:bg-gray-300 border-gray-300;
   }
 
   .btn-accent {
@@ -57,19 +98,44 @@
   }
 
   .btn-ghost {
-    @apply btn bg-transparent hover:bg-dark-700 active:bg-dark-600;
+    @apply btn bg-transparent;
+  }
+
+  html.dark .btn-ghost,
+  html:not(.light) .btn-ghost {
+    @apply hover:bg-dark-700 active:bg-dark-600;
+  }
+
+  html.light .btn-ghost {
+    @apply hover:bg-gray-100 active:bg-gray-200;
   }
 
   .input {
-    @apply w-full px-4 py-3 bg-dark-700 border border-dark-600
-           rounded-lg text-white placeholder-dark-300
+    @apply w-full px-4 py-3 rounded-lg
            focus:outline-none focus:ring-2 focus:ring-primary-400
            focus:border-transparent transition-all duration-200;
   }
 
+  html.dark .input,
+  html:not(.light) .input {
+    @apply bg-dark-700 border border-dark-600 text-white placeholder-dark-300;
+  }
+
+  html.light .input {
+    @apply bg-white border border-gray-300 text-gray-900 placeholder-gray-400;
+  }
+
   .card {
-    @apply bg-dark-700 rounded-xl p-6 border border-dark-600
-           shadow-lg backdrop-blur-sm;
+    @apply rounded-xl p-6 shadow-lg backdrop-blur-sm transition-colors duration-200;
+  }
+
+  html.dark .card,
+  html:not(.light) .card {
+    @apply bg-dark-700 border border-dark-600;
+  }
+
+  html.light .card {
+    @apply bg-white border border-gray-200;
   }
 
   .card-hover {
@@ -78,7 +144,16 @@
   }
 
   .glass {
-    @apply bg-dark-700/80 backdrop-blur-md border border-dark-600/50;
+    @apply backdrop-blur-md;
+  }
+
+  html.dark .glass,
+  html:not(.light) .glass {
+    @apply bg-dark-700/80 border border-dark-600/50;
+  }
+
+  html.light .glass {
+    @apply bg-white/80 border border-gray-200/50;
   }
 
   .gradient-text {
@@ -97,6 +172,44 @@
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
+  }
+
+  /* Light mode text colors */
+  html.light .text-dark-200 {
+    @apply text-gray-700;
+  }
+
+  html.light .text-dark-300 {
+    @apply text-gray-600;
+  }
+
+  html.light .text-dark-400 {
+    @apply text-gray-500;
+  }
+
+  /* Light mode backgrounds */
+  html.light .bg-dark-600 {
+    @apply bg-gray-100;
+  }
+
+  html.light .bg-dark-700 {
+    @apply bg-white;
+  }
+
+  html.light .bg-dark-800 {
+    @apply bg-gray-50;
+  }
+
+  html.light .border-dark-600 {
+    @apply border-gray-200;
+  }
+
+  html.light .hover\:bg-dark-600:hover {
+    @apply bg-gray-100;
+  }
+
+  html.light .hover\:bg-dark-700:hover {
+    @apply bg-gray-50;
   }
 }
 
