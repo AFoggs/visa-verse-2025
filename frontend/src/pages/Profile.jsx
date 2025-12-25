@@ -392,45 +392,44 @@ function Profile() {
               </div>
 
               {/* Show More button and extra interests */}
-              {!showMoreInterests ? (
+              {randomExtraInterests.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-dark-600">
+                  {randomExtraInterests.map((interest) => (
+                    <button
+                      key={interest}
+                      onClick={() => toggleInterest(interest)}
+                      disabled={!editData.interests?.includes(interest) && (editData.interests?.length || 0) >= 10}
+                      className={`px-3 py-1 rounded-full text-sm transition-all ${
+                        editData.interests?.includes(interest)
+                          ? 'bg-primary-400 text-white'
+                          : (editData.interests?.length || 0) >= 10
+                            ? 'bg-dark-700 text-dark-500 cursor-not-allowed'
+                            : 'bg-dark-600 hover:bg-dark-500'
+                      }`}
+                    >
+                      {interest}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Show more button - only show if there are more interests to load */}
+              {randomExtraInterests.length < EXTRA_INTERESTS.length && (
                 <button
                   onClick={() => {
-                    setRandomExtraInterests(getRandomItems(EXTRA_INTERESTS, 10));
+                    // Get interests that haven't been loaded yet
+                    const remainingInterests = EXTRA_INTERESTS.filter(
+                      i => !randomExtraInterests.includes(i)
+                    );
+                    // Get next 10 random from remaining
+                    const nextBatch = getRandomItems(remainingInterests, 10);
+                    setRandomExtraInterests(prev => [...prev, ...nextBatch]);
                     setShowMoreInterests(true);
                   }}
                   className="text-primary-400 text-sm hover:underline"
                 >
-                  + Show more interests
+                  + Show more interests ({EXTRA_INTERESTS.length - randomExtraInterests.length} remaining)
                 </button>
-              ) : (
-                <>
-                  <div className="flex flex-wrap gap-2 pt-2 border-t border-dark-600">
-                    {randomExtraInterests.map((interest) => (
-                      <button
-                        key={interest}
-                        onClick={() => toggleInterest(interest)}
-                        disabled={!editData.interests?.includes(interest) && (editData.interests?.length || 0) >= 10}
-                        className={`px-3 py-1 rounded-full text-sm transition-all ${
-                          editData.interests?.includes(interest)
-                            ? 'bg-primary-400 text-white'
-                            : (editData.interests?.length || 0) >= 10
-                              ? 'bg-dark-700 text-dark-500 cursor-not-allowed'
-                              : 'bg-dark-600 hover:bg-dark-500'
-                        }`}
-                      >
-                        {interest}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => {
-                      setRandomExtraInterests(getRandomItems(EXTRA_INTERESTS, 10));
-                    }}
-                    className="text-dark-400 text-sm hover:text-primary-400"
-                  >
-                    ↻ Show different interests
-                  </button>
-                </>
               )}
 
               {/* Show any selected extras that aren't in the current random set */}
