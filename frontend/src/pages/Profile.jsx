@@ -428,7 +428,7 @@ function Profile() {
                   }}
                   className="text-primary-400 text-sm hover:underline"
                 >
-                  + Show more interests ({EXTRA_INTERESTS.length - randomExtraInterests.length} remaining)
+                  + Show more
                 </button>
               )}
 

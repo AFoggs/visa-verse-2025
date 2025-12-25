@@ -514,15 +514,14 @@ function Chat() {
                     Two Truths & a Lie
                   </button>
 
-                  {match?.status === 'friends' && (
-                    <Link
-                      to={`/profile/${otherUser?.userId}`}
-                      className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-dark-600 transition-colors"
-                    >
-                      <Info size={20} className="text-primary-400" />
-                      View Full Profile
-                    </Link>
-                  )}
+                  <Link
+                    to={`/profile/${otherUser?.userId}`}
+                    onClick={() => setShowMenu(false)}
+                    className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-dark-600 transition-colors"
+                  >
+                    <Info size={20} className="text-primary-400" />
+                    View Profile
+                  </Link>
 
                   <div className="border-t border-dark-600 mt-1 pt-1">
                     <button

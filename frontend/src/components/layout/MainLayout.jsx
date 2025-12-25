@@ -75,9 +75,22 @@ function MainLayout() {
 
           {/* User Menu */}
           <div className="flex items-center gap-4">
-            <span className="text-dark-200 text-sm">
-              {userProfile?.profile?.name || 'User'}
-            </span>
+            <NavLink
+              to="/profile"
+              className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-semibold bg-gradient-to-br from-primary-400 to-accent-400 hover:ring-2 hover:ring-primary-400/50 transition-all"
+            >
+              {userProfile?.profile?.photoUrl ? (
+                <img
+                  src={userProfile.profile.photoUrl}
+                  alt={userProfile.profile.name || 'Profile'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-white text-sm">
+                  {userProfile?.profile?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </span>
+              )}
+            </NavLink>
             {permissionStatus === 'default' && (
               <button
                 onClick={requestPermission}

@@ -239,25 +239,34 @@ router.get('/:userId', async (req, res) => {
     const areFriends = currentUser?.connections?.friends?.includes(userId);
     const areConnections = currentUser?.connections?.connections?.includes(userId);
 
-    // Only allow viewing profiles of friends or connections (or matched users)
-    if (!areFriends && !areConnections) {
-      // Check if there's a match between these users
-      const matches1 = await db.collection('matches')
-        .where('user1Id', '==', req.user.uid)
-        .where('user2Id', '==', userId)
-        .limit(1)
-        .get();
+    // Check if there's a match between these users
+    const matches1 = await db.collection('matches')
+      .where('user1Id', '==', req.user.uid)
+      .where('user2Id', '==', userId)
+      .limit(1)
+      .get();
 
-      const matches2 = await db.collection('matches')
-        .where('user1Id', '==', userId)
-        .where('user2Id', '==', req.user.uid)
-        .limit(1)
-        .get();
+    const matches2 = await db.collection('matches')
+      .where('user1Id', '==', userId)
+      .where('user2Id', '==', req.user.uid)
+      .limit(1)
+      .get();
 
-      if (matches1.empty && matches2.empty) {
-        return res.status(403).json({ error: 'You can only view profiles of your connections' });
-      }
+    // Determine match status
+    let matchStatus = null;
+    if (!matches1.empty) {
+      matchStatus = matches1.docs[0].data().status;
+    } else if (!matches2.empty) {
+      matchStatus = matches2.docs[0].data().status;
     }
+
+    // Only allow viewing profiles of friends, connections, or pending matches
+    if (!matchStatus && !areFriends && !areConnections) {
+      return res.status(403).json({ error: 'You can only view profiles of your connections' });
+    }
+
+    // Determine if they are friends (either from match status or legacy connections)
+    const isFriend = matchStatus === 'friends' || areFriends;
 
     // Prepare response based on relationship
     const profile = {
@@ -267,14 +276,16 @@ router.get('/:userId', async (req, res) => {
         age: userData.profile?.age,
         location: userData.profile?.location,
         whyHere: userData.profile?.whyHere,
+        whyHereIds: userData.profile?.whyHereIds,
         interests: userData.profile?.interests,
         preferences: userData.profile?.preferences,
+        photoUrl: isFriend ? userData.profile?.photoUrl : null,
       },
-      status: areFriends ? 'friends' : 'connection',
+      status: isFriend ? 'friends' : 'connection',
     };
 
     // Include extended profile for friends only
-    if (areFriends) {
+    if (isFriend) {
       profile.extendedProfile = userData.extendedProfile;
     }
 

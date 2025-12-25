@@ -142,24 +142,28 @@ Consider this approach: ${randomStyle}
 // Generate icebreakers specific to one user's perspective
 export async function generateIcebreakersForUser(requestingUser, otherUser, sharedInterests) {
   try {
-    const prompt = `Generate 3 personalized icebreaker questions for ${requestingUser.profile?.name || 'someone'} to ask ${otherUser.profile?.name || 'their new connection'} on a friendship app.
+    const otherName = otherUser.profile?.name || 'there';
+    const otherInterests = otherUser.profile?.interests || [];
+    const myInterests = requestingUser.profile?.interests || [];
 
-About ${requestingUser.profile?.name || 'the person asking'}:
-- Interests: ${requestingUser.profile?.interests?.join(', ') || 'Various'}
-- Looking for: ${requestingUser.profile?.whyHere || 'connections'}
+    const prompt = `Generate 3 short conversation starters written in FIRST PERSON for me to send to ${otherName}.
 
-About ${otherUser.profile?.name || 'the other person'}:
-- Interests: ${otherUser.profile?.interests?.join(', ') || 'Various'}
-- Looking for: ${otherUser.profile?.whyHere || 'connections'}
+Their interests: ${otherInterests.join(', ') || 'not specified'}
+My interests: ${myInterests.join(', ') || 'not specified'}
+Shared interests: ${sharedInterests?.join(', ') || 'none'}
 
-Shared interests: ${sharedInterests?.join(', ') || 'None specifically'}
+Rules:
+- Write in first person ("I", "I'm", "I've")
+- Keep each message SHORT (under 15 words)
+- Be specific and contextual to their interests
+- Sound natural, like a real text message
+- No generic questions like "how are you"
+- Each should reference something specific about them or shared interests
 
-Generate 3 unique icebreaker questions that:
-1. Are from ${requestingUser.profile?.name || 'the asker'}'s perspective
-2. Reference ${otherUser.profile?.name || 'the other person'}'s specific interests when possible
-3. Feel personal and specific, not generic
-4. Are warm, open-ended, and invite genuine conversation
-5. Each should be distinctly different in topic/approach
+Good examples:
+- "I noticed you're into hiking - got any favorite trails?"
+- "Fellow coffee lover! What's your go-to order?"
+- "I've been wanting to get into photography. Any tips?"
 
 Return ONLY a JSON array of 3 strings, nothing else:`;
 
@@ -185,21 +189,19 @@ Return ONLY a JSON array of 3 strings, nothing else:`;
       }
     }
 
-    // Fallback icebreakers personalized to other user
-    const otherName = otherUser.profile?.name || 'you';
-    const otherInterest = otherUser.profile?.interests?.[0] || 'hobbies';
+    // Fallback icebreakers - first person and concise
+    const otherInterest = otherInterests[0] || 'that';
     return [
-      `Hey ${otherName}! I noticed you're into ${otherInterest} - what got you started with that?`,
-      `What's something that's made you genuinely happy lately, ${otherName}?`,
-      `If we could hang out and do anything together, what would be fun?`,
+      `I noticed you're into ${otherInterest} - how'd you get into it?`,
+      `I'm curious, what got you on this app?`,
+      `I'd love to hear what you're into lately!`,
     ];
   } catch (error) {
     console.error('Icebreaker generation error:', error);
-    const otherName = otherUser.profile?.name || 'you';
     return [
-      `What's something that made you smile recently, ${otherName}?`,
-      "If you could master any skill instantly, what would it be?",
-      "What's a topic you could talk about for hours?",
+      `I saw we have some things in common - what's your favorite?`,
+      `I'm always looking for new recommendations. Got any?`,
+      `I'd love to know what you're passionate about!`,
     ];
   }
 }
