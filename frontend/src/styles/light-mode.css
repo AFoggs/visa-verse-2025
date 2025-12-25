@@ -1,0 +1,31 @@
+/*
+ * Light Mode Overrides
+ * This file is loaded AFTER Tailwind CSS to override utility classes
+ * without causing circular dependency issues
+ */
+
+/* Background overrides */
+html.light [class*="bg-dark-600"] { background-color: #f3f4f6 !important; }
+html.light [class*="bg-dark-700"]:not([class*="bg-dark-700/"]) { background-color: #ffffff !important; }
+html.light [class*="bg-dark-800"] { background-color: #f9fafb !important; }
+html.light [class*="bg-dark-700/80"] { background-color: rgba(255,255,255,0.8) !important; }
+html.light [class*="bg-dark-700/90"] { background-color: rgba(255,255,255,0.9) !important; }
+
+/* Text overrides */
+html.light [class*="text-dark-200"] { color: #374151 !important; }
+html.light [class*="text-dark-300"] { color: #4b5563 !important; }
+html.light [class*="text-dark-400"] { color: #6b7280 !important; }
+html.light [class*="text-white"]:not(button):not(a):not(.btn):not(.btn-primary):not(.btn-accent):not(.btn-success) { color: #111827 !important; }
+
+/* Border overrides */
+html.light [class*="border-dark-600"]:not([class*="border-dark-600/"]) { border-color: #e5e7eb !important; }
+html.light [class*="border-dark-600/50"] { border-color: rgba(229,231,235,0.5) !important; }
+html.light [class*="divide-dark-600"] > :not([hidden]) ~ :not([hidden]) { border-color: #e5e7eb !important; }
+
+/* Hover state overrides */
+html.light [class*="hover:bg-dark-600"]:hover { background-color: #e5e7eb !important; }
+html.light [class*="hover:bg-dark-700"]:hover { background-color: #f3f4f6 !important; }
+html.light [class*="hover:text-white"]:hover:not(button):not(.btn) { color: #111827 !important; }
+
+/* Placeholder overrides */
+html.light [class*="placeholder-dark-300"]::placeholder { color: #9ca3af !important; }

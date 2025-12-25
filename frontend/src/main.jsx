@@ -7,6 +7,7 @@ import { SocketProvider } from './context/SocketContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import './styles/index.css';
+import './styles/light-mode.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
