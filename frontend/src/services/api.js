@@ -93,6 +93,18 @@ export const matchesApi = {
     fetchWithAuth(`/api/matches/accept/${matchId}`, {
       method: 'POST',
     }),
+
+  removeConnection: (matchId, reason) =>
+    fetchWithAuth(`/api/matches/${matchId}/remove`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  reportUser: (matchId, reason, details) =>
+    fetchWithAuth(`/api/matches/${matchId}/report`, {
+      method: 'POST',
+      body: JSON.stringify({ reason, details }),
+    }),
 };
 
 // Chat API

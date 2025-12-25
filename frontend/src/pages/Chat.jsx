@@ -15,13 +15,12 @@ import {
   Info,
   Zap,
   RefreshCw,
-  Dice5,
-  HelpCircle,
+  Shuffle,
   MessageCircle,
   Phone,
-  PhoneOff,
-  MessageSquare,
   AlertTriangle,
+  Flag,
+  UserMinus,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -56,6 +55,13 @@ function Chat() {
   const [communicationMode, setCommunicationMode] = useState('both'); // 'text', 'voice', 'both'
   const [myPreference, setMyPreference] = useState('both');
   const [theirPreference, setTheirPreference] = useState('both');
+  const [currentIcebreakerIndex, setCurrentIcebreakerIndex] = useState(0);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [removeReason, setRemoveReason] = useState('');
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -295,10 +301,51 @@ function Chat() {
 
   const sendIcebreaker = async (icebreaker) => {
     try {
-      await chatApi.sendMessage(matchId, icebreaker, 'ai-icebreaker');
+      // Send as normal text message so it appears from the user
+      await chatApi.sendMessage(matchId, icebreaker, 'text');
+      // Remove this icebreaker and show next one
       setIcebreakers((prev) => prev.filter((i) => i !== icebreaker));
+      setCurrentIcebreakerIndex(0);
     } catch (error) {
       console.error('Send icebreaker error:', error);
+    }
+  };
+
+  const shuffleIcebreaker = () => {
+    if (icebreakers.length > 1) {
+      setCurrentIcebreakerIndex((prev) => (prev + 1) % icebreakers.length);
+    }
+  };
+
+  const handleRemoveConnection = async () => {
+    if (!removeReason.trim()) return;
+    setActionLoading(true);
+    try {
+      await matchesApi.removeConnection(matchId, removeReason);
+      setShowRemoveModal(false);
+      navigate('/friends');
+    } catch (error) {
+      console.error('Remove connection error:', error);
+      alert('Failed to remove connection');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReportUser = async () => {
+    if (!reportReason) return;
+    setActionLoading(true);
+    try {
+      await matchesApi.reportUser(matchId, reportReason, reportDetails);
+      setShowReportModal(false);
+      setReportReason('');
+      setReportDetails('');
+      alert('Report submitted. Thank you for helping keep our community safe.');
+    } catch (error) {
+      console.error('Report user error:', error);
+      alert('Failed to submit report');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -476,6 +523,30 @@ function Chat() {
                       View Full Profile
                     </Link>
                   )}
+
+                  <div className="border-t border-dark-600 mt-1 pt-1">
+                    <button
+                      onClick={() => {
+                        setShowReportModal(true);
+                        setShowMenu(false);
+                      }}
+                      className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-dark-600 transition-colors text-warning-400"
+                    >
+                      <Flag size={20} />
+                      Report User
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowRemoveModal(true);
+                        setShowMenu(false);
+                      }}
+                      className="w-full px-4 py-3 text-left flex items-center gap-3 hover:bg-dark-600 transition-colors text-error-400"
+                    >
+                      <UserMinus size={20} />
+                      Remove {match?.status === 'friends' ? 'Friend' : 'Connection'}
+                    </button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -527,37 +598,48 @@ function Chat() {
         )}
       </AnimatePresence>
 
-      {/* Icebreakers */}
+      {/* Conversation Suggestion */}
       {(icebreakers.length > 0 || messages.length === 0) && (
         <div className="bg-dark-700/30 px-4 py-3 border-b border-dark-600">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-sm text-dark-300">
-              <Sparkles size={16} className="text-accent-400" />
-              AI Conversation Starters
+              <MessageCircle size={16} className="text-primary-400" />
+              Message Suggestion
             </div>
-            <button
-              onClick={refreshIcebreakers}
-              disabled={loadingIcebreakers}
-              className="btn-ghost p-1.5 text-dark-400 hover:text-accent-400"
-              title="Get new icebreakers"
-            >
-              <RefreshCw size={16} className={loadingIcebreakers ? 'animate-spin' : ''} />
-            </button>
+            <div className="flex gap-1">
+              {icebreakers.length > 1 && (
+                <button
+                  onClick={shuffleIcebreaker}
+                  className="btn-ghost p-1.5 text-dark-400 hover:text-primary-400"
+                  title="Try another suggestion"
+                >
+                  <Shuffle size={16} />
+                </button>
+              )}
+              <button
+                onClick={refreshIcebreakers}
+                disabled={loadingIcebreakers}
+                className="btn-ghost p-1.5 text-dark-400 hover:text-primary-400"
+                title="Get new suggestions"
+              >
+                <RefreshCw size={16} className={loadingIcebreakers ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
           {icebreakers.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {icebreakers.map((icebreaker, index) => (
-                <button
-                  key={index}
-                  onClick={() => sendIcebreaker(icebreaker)}
-                  className="flex-shrink-0 px-4 py-2 bg-accent-400/20 text-accent-300 rounded-full text-sm hover:bg-accent-400/30 transition-colors"
-                >
-                  {icebreaker}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => sendIcebreaker(icebreakers[currentIcebreakerIndex])}
+              className="w-full text-left p-3 bg-primary-400/10 border border-primary-400/20 rounded-xl hover:bg-primary-400/20 transition-colors group"
+            >
+              <p className="text-sm text-white leading-relaxed">
+                "{icebreakers[currentIcebreakerIndex]}"
+              </p>
+              <p className="text-xs text-primary-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                Tap to send this message
+              </p>
+            </button>
           ) : (
-            <p className="text-dark-400 text-sm">Click refresh to get personalized icebreakers!</p>
+            <p className="text-dark-400 text-sm">Click refresh to get personalized suggestions!</p>
           )}
         </div>
       )}
@@ -576,7 +658,7 @@ function Chat() {
           <AnimatePresence initial={false}>
             {messages.map((message, index) => {
               const isOwn = message.senderId === user?.uid;
-              const isAiIcebreaker = message.type === 'ai-icebreaker';
+              const isGameStart = message.type === 'game-start';
 
               return (
                 <motion.div
@@ -587,23 +669,17 @@ function Chat() {
                 >
                   <div
                     className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      isAiIcebreaker
-                        ? 'bg-accent-400/20 border border-accent-400/30'
+                      isGameStart
+                        ? 'bg-success-400/20 border border-success-400/30'
                         : isOwn
                           ? 'bg-primary-400 text-white'
                           : 'bg-dark-700 border border-dark-600'
                     }`}
                   >
-                    {isAiIcebreaker && (
-                      <div className="flex items-center gap-1 text-accent-400 text-xs mb-1">
-                        <Sparkles size={12} />
-                        AI Icebreaker
-                      </div>
-                    )}
                     <p className="whitespace-pre-wrap">{message.content}</p>
                     <p
                       className={`text-xs mt-1 ${
-                        isOwn && !isAiIcebreaker ? 'text-primary-200' : 'text-dark-400'
+                        isOwn && !isGameStart ? 'text-primary-200' : 'text-dark-400'
                       }`}
                     >
                       {new Date(message.timestamp).toLocaleTimeString([], {
@@ -822,6 +898,169 @@ function Chat() {
                   className="btn-primary flex-1"
                 >
                   Submit
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Remove Connection Modal */}
+      <AnimatePresence>
+        {showRemoveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="card w-full max-w-md"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-error-400">
+                  Remove {match?.status === 'friends' ? 'Friend' : 'Connection'}
+                </h3>
+                <button onClick={() => setShowRemoveModal(false)} className="btn-ghost p-1">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <p className="text-dark-300 mb-4">
+                Are you sure you want to remove {otherUser?.name} from your {match?.status === 'friends' ? 'friends' : 'connections'}?
+                This action cannot be undone.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">
+                  Please tell us why (required)
+                </label>
+                <select
+                  value={removeReason}
+                  onChange={(e) => setRemoveReason(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="">Select a reason...</option>
+                  <option value="no_longer_interested">No longer interested in connecting</option>
+                  <option value="different_interests">We have different interests</option>
+                  <option value="communication_issues">Communication issues</option>
+                  <option value="uncomfortable">Made me uncomfortable</option>
+                  <option value="other">Other reason</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowRemoveModal(false);
+                    setRemoveReason('');
+                  }}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRemoveConnection}
+                  disabled={!removeReason || actionLoading}
+                  className="btn-primary flex-1 bg-error-400 hover:bg-error-500"
+                >
+                  {actionLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white mx-auto" />
+                  ) : (
+                    'Remove'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Report User Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="card w-full max-w-md"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-warning-400">
+                  Report {otherUser?.name}
+                </h3>
+                <button onClick={() => setShowReportModal(false)} className="btn-ghost p-1">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <p className="text-dark-300 mb-4">
+                Help us keep 3Degrees safe. Your report will be reviewed by our team.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">
+                  Reason for report (required)
+                </label>
+                <select
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="">Select a reason...</option>
+                  <option value="harassment">Harassment or bullying</option>
+                  <option value="inappropriate_content">Inappropriate content</option>
+                  <option value="spam">Spam or scam</option>
+                  <option value="fake_profile">Fake profile</option>
+                  <option value="threatening">Threatening behavior</option>
+                  <option value="hate_speech">Hate speech</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">
+                  Additional details (optional)
+                </label>
+                <textarea
+                  value={reportDetails}
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  placeholder="Provide any additional context..."
+                  className="input w-full h-24 resize-none"
+                  maxLength={500}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowReportModal(false);
+                    setReportReason('');
+                    setReportDetails('');
+                  }}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReportUser}
+                  disabled={!reportReason || actionLoading}
+                  className="btn-primary flex-1 bg-warning-400 hover:bg-warning-500 text-dark-900"
+                >
+                  {actionLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-dark-900 mx-auto" />
+                  ) : (
+                    'Submit Report'
+                  )}
                 </button>
               </div>
             </motion.div>

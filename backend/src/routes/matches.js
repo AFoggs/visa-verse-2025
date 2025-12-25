@@ -549,4 +549,129 @@ router.post('/:matchId/accept-friend', async (req, res) => {
   }
 });
 
+// Remove connection/friend
+router.post('/:matchId/remove', async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ error: 'Reason is required' });
+    }
+
+    const db = getDb();
+
+    const matchDoc = await db.collection('matches').doc(matchId).get();
+
+    if (!matchDoc.exists) {
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    const matchData = matchDoc.data();
+
+    // Verify user is part of this match
+    if (matchData.user1Id !== req.user.uid && matchData.user2Id !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const otherUserId = matchData.user1Id === req.user.uid ? matchData.user2Id : matchData.user1Id;
+
+    // Log the removal for analytics
+    await db.collection('removals').add({
+      matchId,
+      removedBy: req.user.uid,
+      removedUser: otherUserId,
+      previousStatus: matchData.status,
+      reason,
+      createdAt: new Date(),
+    });
+
+    // Update match status
+    await db.collection('matches').doc(matchId).update({
+      status: 'removed',
+      removedBy: req.user.uid,
+      removedAt: new Date(),
+      removeReason: reason,
+    });
+
+    // Remove from both users' connections lists
+    const currentUserDoc = await db.collection('users').doc(req.user.uid).get();
+    const otherUserDoc = await db.collection('users').doc(otherUserId).get();
+
+    const currentConnections = currentUserDoc.data()?.connections?.connections || [];
+    const currentFriends = currentUserDoc.data()?.connections?.friends || [];
+    const otherConnections = otherUserDoc.data()?.connections?.connections || [];
+    const otherFriends = otherUserDoc.data()?.connections?.friends || [];
+
+    await db.collection('users').doc(req.user.uid).update({
+      'connections.connections': currentConnections.filter(id => id !== otherUserId),
+      'connections.friends': currentFriends.filter(id => id !== otherUserId),
+    });
+
+    await db.collection('users').doc(otherUserId).update({
+      'connections.connections': otherConnections.filter(id => id !== req.user.uid),
+      'connections.friends': otherFriends.filter(id => id !== req.user.uid),
+    });
+
+    res.json({ success: true, message: 'Connection removed successfully' });
+  } catch (error) {
+    console.error('Remove connection error:', error);
+    res.status(500).json({ error: 'Failed to remove connection' });
+  }
+});
+
+// Report user
+router.post('/:matchId/report', async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const { reason, details } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ error: 'Report reason is required' });
+    }
+
+    const db = getDb();
+
+    const matchDoc = await db.collection('matches').doc(matchId).get();
+
+    if (!matchDoc.exists) {
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    const matchData = matchDoc.data();
+
+    // Verify user is part of this match
+    if (matchData.user1Id !== req.user.uid && matchData.user2Id !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const reportedUserId = matchData.user1Id === req.user.uid ? matchData.user2Id : matchData.user1Id;
+
+    // Create the report
+    await db.collection('reports').add({
+      matchId,
+      reportedBy: req.user.uid,
+      reportedUser: reportedUserId,
+      reason,
+      details: details || '',
+      status: 'pending', // pending, reviewed, resolved, dismissed
+      createdAt: new Date(),
+    });
+
+    // Increment reported user's report count for moderation
+    const reportedUserDoc = await db.collection('users').doc(reportedUserId).get();
+    const currentReportCount = reportedUserDoc.data()?.reportCount || 0;
+
+    await db.collection('users').doc(reportedUserId).update({
+      reportCount: currentReportCount + 1,
+      lastReportedAt: new Date(),
+    });
+
+    res.json({ success: true, message: 'Report submitted successfully' });
+  } catch (error) {
+    console.error('Report user error:', error);
+    res.status(500).json({ error: 'Failed to submit report' });
+  }
+});
+
 export default router;
