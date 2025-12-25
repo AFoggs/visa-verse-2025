@@ -186,11 +186,28 @@ function Chat() {
       }
     };
 
+    const handleGameInvitation = (data) => {
+      if (data.matchId === matchId) {
+        setGameState(data.gameState);
+        setShowGame(true);
+        setShowGames(false);
+      }
+    };
+
+    const handleGameDeclined = (data) => {
+      if (data.matchId === matchId) {
+        setGameState(null);
+        setShowGame(false);
+      }
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('typing_start', handleTypingStart);
     socket.on('typing_stop', handleTypingStop);
     socket.on('game_started', handleGameStarted);
     socket.on('game_move', handleGameMove);
+    socket.on('game_invitation', handleGameInvitation);
+    socket.on('game_declined', handleGameDeclined);
 
     return () => {
       socket.off('new_message', handleNewMessage);
@@ -198,6 +215,8 @@ function Chat() {
       socket.off('typing_stop', handleTypingStop);
       socket.off('game_started', handleGameStarted);
       socket.off('game_move', handleGameMove);
+      socket.off('game_invitation', handleGameInvitation);
+      socket.off('game_declined', handleGameDeclined);
     };
   }, [socket, matchId, user]);
 
@@ -546,27 +565,6 @@ function Chat() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <div className="max-w-3xl mx-auto space-y-4">
-          {/* Active Game */}
-          <AnimatePresence>
-            {showGame && gameState && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="mb-4"
-              >
-                <GameContainer
-                  matchId={matchId}
-                  gameState={gameState}
-                  userId={user?.uid}
-                  otherUserName={otherUser?.name || 'Other Player'}
-                  onGameUpdate={handleGameUpdate}
-                  onClose={handleCloseGame}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {messages.length === 0 && !showGame && (
             <div className="text-center py-12">
               <Sparkles className="mx-auto text-dark-400 mb-3" size={48} />
@@ -635,6 +633,27 @@ function Chat() {
               </div>
             </motion.div>
           )}
+
+          {/* Active Game - positioned at bottom */}
+          <AnimatePresence>
+            {showGame && gameState && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                className="mt-4"
+              >
+                <GameContainer
+                  matchId={matchId}
+                  gameState={gameState}
+                  userId={user?.uid}
+                  otherUserName={otherUser?.name || 'Other Player'}
+                  onGameUpdate={handleGameUpdate}
+                  onClose={handleCloseGame}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div ref={messagesEndRef} />
         </div>

@@ -8,13 +8,11 @@ function TwentyQuestionsGame({ gameState, userId, otherUserName, onSubmitMove, o
   const [finalGuess, setFinalGuess] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const isTopicSetter = gameState.currentPlayer === userId && gameState.status === 'waiting_topic';
-  const isGuesser = gameState.topic && gameState.currentPlayer !== userId ||
-    (gameState.status === 'asking' && !isTopicSetter);
-  const isAnswerer = gameState.topic && gameState.currentPlayer === userId && gameState.status !== 'waiting_topic';
+  const isTopicSetter = gameState.topicSetter === userId;
+  const isGuesser = gameState.guesser === userId;
+  const isComplete = gameState.status === 'complete';
   const needsAnswer = gameState.status === 'answering' && gameState.questions?.length > 0 &&
     gameState.questions[gameState.questions.length - 1]?.answer === null;
-  const isComplete = gameState.status === 'complete';
 
   const handleSetTopic = async () => {
     if (!topic.trim()) return;
@@ -107,7 +105,7 @@ function TwentyQuestionsGame({ gameState, userId, otherUserName, onSubmitMove, o
         </div>
 
         <div className="bg-dark-600 rounded-lg p-3 mb-4">
-          <p className="text-sm text-dark-300 mb-2">
+          <p className="text-sm text-dark-300">
             Questions asked: {gameState.questions?.length || 0} / 20
           </p>
         </div>
@@ -119,50 +117,50 @@ function TwentyQuestionsGame({ gameState, userId, otherUserName, onSubmitMove, o
     );
   }
 
-  // Topic setter phase
-  if (isTopicSetter || gameState.status === 'waiting_topic') {
-    if (gameState.currentPlayer === userId) {
-      return (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-dark-700 rounded-xl p-6 border border-dark-600"
+  // Topic setter - waiting to set topic
+  if (gameState.status === 'waiting_topic' && isTopicSetter) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-dark-700 rounded-xl p-6 border border-dark-600"
+      >
+        <div className="text-center mb-6">
+          <div className="text-4xl mb-2">❓</div>
+          <h3 className="text-xl font-semibold mb-1">20 Questions</h3>
+          <p className="text-dark-300 text-sm">
+            Think of something for {otherUserName} to guess!
+          </p>
+        </div>
+
+        <div className="mb-4">
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="Enter a word or phrase..."
+            className="input w-full"
+            maxLength={100}
+          />
+          <p className="text-dark-400 text-xs mt-2">
+            Pick something they can guess with yes/no questions (person, place, thing, etc.)
+          </p>
+        </div>
+
+        <button
+          onClick={handleSetTopic}
+          disabled={!topic.trim() || submitting}
+          className="btn-primary w-full flex items-center justify-center gap-2"
         >
-          <div className="text-center mb-6">
-            <div className="text-4xl mb-2">❓</div>
-            <h3 className="text-xl font-semibold mb-1">20 Questions</h3>
-            <p className="text-dark-300 text-sm">
-              Think of something for {otherUserName} to guess!
-            </p>
-          </div>
+          <Lightbulb size={18} />
+          {submitting ? 'Setting...' : 'Set Topic'}
+        </button>
+      </motion.div>
+    );
+  }
 
-          <div className="mb-4">
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="Enter a word or phrase..."
-              className="input w-full"
-              maxLength={100}
-            />
-            <p className="text-dark-400 text-xs mt-2">
-              Pick something they can guess with yes/no questions (person, place, thing, etc.)
-            </p>
-          </div>
-
-          <button
-            onClick={handleSetTopic}
-            disabled={!topic.trim() || submitting}
-            className="btn-primary w-full flex items-center justify-center gap-2"
-          >
-            <Lightbulb size={18} />
-            {submitting ? 'Setting...' : 'Set Topic'}
-          </button>
-        </motion.div>
-      );
-    }
-
-    // Waiting for other player to set topic
+  // Guesser - waiting for topic to be set
+  if (gameState.status === 'waiting_topic' && isGuesser) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -183,8 +181,8 @@ function TwentyQuestionsGame({ gameState, userId, otherUserName, onSubmitMove, o
     );
   }
 
-  // Answering phase - answer the question
-  if (needsAnswer && isAnswerer) {
+  // Topic setter - answering questions
+  if (needsAnswer && isTopicSetter) {
     const lastQuestion = gameState.questions[gameState.questions.length - 1];
 
     return (
@@ -236,59 +234,61 @@ function TwentyQuestionsGame({ gameState, userId, otherUserName, onSubmitMove, o
     );
   }
 
-  // Asking phase - ask questions or make final guess
-  if (gameState.status === 'asking' || (gameState.status === 'answering' && !needsAnswer)) {
-    // If I'm the guesser
-    if (!isAnswerer) {
-      return (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-dark-700 rounded-xl p-6 border border-dark-600"
-        >
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">20 Questions</h3>
-            <span className="text-sm text-dark-400">
-              {gameState.questionsRemaining} left
-            </span>
-          </div>
+  // Guesser - asking questions or waiting for answer
+  if (isGuesser && (gameState.status === 'asking' || gameState.status === 'answering' || gameState.status === 'final_guess')) {
+    const waitingForAnswer = gameState.questions?.length > 0 &&
+      gameState.questions[gameState.questions.length - 1]?.answer === null;
 
-          {/* Question history */}
-          {gameState.questions?.length > 0 && (
-            <div className="bg-dark-600 rounded-lg p-3 mb-4 max-h-40 overflow-y-auto">
-              {gameState.questions.map((q, index) => (
-                <div key={index} className="flex justify-between items-center py-1 text-sm border-b border-dark-500 last:border-0">
-                  <span className="text-dark-300 truncate flex-1 mr-2">
-                    {index + 1}. {q.question}
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-dark-700 rounded-xl p-6 border border-dark-600"
+      >
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">20 Questions</h3>
+          <span className="text-sm text-dark-400">
+            {gameState.questionsRemaining} left
+          </span>
+        </div>
+
+        {/* Question history */}
+        {gameState.questions?.length > 0 && (
+          <div className="bg-dark-600 rounded-lg p-3 mb-4 max-h-40 overflow-y-auto">
+            {gameState.questions.map((q, index) => (
+              <div key={index} className="flex justify-between items-center py-1 text-sm border-b border-dark-500 last:border-0">
+                <span className="text-dark-300 truncate flex-1 mr-2">
+                  {index + 1}. {q.question}
+                </span>
+                {q.answer ? (
+                  <span className={`font-medium ${
+                    q.answer === 'yes' ? 'text-success-400' :
+                    q.answer === 'sometimes' ? 'text-amber-400' : 'text-error-400'
+                  }`}>
+                    {q.answer}
                   </span>
-                  {q.answer && (
-                    <span className={`font-medium ${
-                      q.answer === 'yes' ? 'text-success-400' :
-                      q.answer === 'sometimes' ? 'text-amber-400' : 'text-error-400'
-                    }`}>
-                      {q.answer}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Waiting for answer */}
-          {gameState.questions?.length > 0 &&
-           gameState.questions[gameState.questions.length - 1]?.answer === null && (
-            <div className="text-center py-4">
-              <p className="text-dark-300 text-sm mb-2">Waiting for {otherUserName} to answer...</p>
-              <div className="flex justify-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-400" />
+                ) : (
+                  <span className="text-dark-500 text-xs">...</span>
+                )}
               </div>
-            </div>
-          )}
+            ))}
+          </div>
+        )}
 
-          {/* Ask question or guess */}
-          {(!gameState.questions?.length ||
-            gameState.questions[gameState.questions.length - 1]?.answer !== null) && (
-            <div className="space-y-3">
+        {/* Waiting for answer */}
+        {waitingForAnswer && (
+          <div className="text-center py-4">
+            <p className="text-dark-300 text-sm mb-2">Waiting for {otherUserName} to answer...</p>
+            <div className="flex justify-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-400" />
+            </div>
+          </div>
+        )}
+
+        {/* Ask question or guess - only when not waiting */}
+        {!waitingForAnswer && (
+          <div className="space-y-3">
+            {gameState.status !== 'final_guess' && gameState.questionsRemaining > 0 && (
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -306,7 +306,9 @@ function TwentyQuestionsGame({ gameState, userId, otherUserName, onSubmitMove, o
                   <HelpCircle size={18} />
                 </button>
               </div>
+            )}
 
+            {(gameState.status !== 'final_guess' && gameState.questionsRemaining > 0) && (
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-dark-500" />
@@ -315,30 +317,38 @@ function TwentyQuestionsGame({ gameState, userId, otherUserName, onSubmitMove, o
                   <span className="bg-dark-700 px-2 text-xs text-dark-400">or</span>
                 </div>
               </div>
+            )}
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={finalGuess}
-                  onChange={(e) => setFinalGuess(e.target.value)}
-                  placeholder="Make your final guess..."
-                  className="input flex-1"
-                />
-                <button
-                  onClick={handleFinalGuess}
-                  disabled={!finalGuess.trim() || submitting}
-                  className="btn bg-accent-400/20 hover:bg-accent-400/30 text-accent-400 border border-accent-400/30 px-4"
-                >
-                  Guess!
-                </button>
-              </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={finalGuess}
+                onChange={(e) => setFinalGuess(e.target.value)}
+                placeholder={gameState.status === 'final_guess' ? "Make your final guess!" : "Make your final guess..."}
+                className="input flex-1"
+              />
+              <button
+                onClick={handleFinalGuess}
+                disabled={!finalGuess.trim() || submitting}
+                className="btn bg-accent-400/20 hover:bg-accent-400/30 text-accent-400 border border-accent-400/30 px-4"
+              >
+                Guess!
+              </button>
             </div>
-          )}
-        </motion.div>
-      );
-    }
 
-    // I'm the answerer, waiting for question
+            {gameState.status === 'final_guess' && (
+              <p className="text-center text-amber-400 text-sm">
+                No questions left! Make your final guess.
+              </p>
+            )}
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  // Topic setter - waiting for guesser to ask/guess
+  if (isTopicSetter && (gameState.status === 'asking' || gameState.status === 'final_guess')) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -377,7 +387,11 @@ function TwentyQuestionsGame({ gameState, userId, otherUserName, onSubmitMove, o
         )}
 
         <div className="text-center py-4">
-          <p className="text-dark-300 text-sm mb-2">Waiting for {otherUserName} to ask a question...</p>
+          <p className="text-dark-300 text-sm mb-2">
+            {gameState.status === 'final_guess'
+              ? `${otherUserName} is making their final guess...`
+              : `Waiting for ${otherUserName} to ask a question...`}
+          </p>
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-400" />
           </div>

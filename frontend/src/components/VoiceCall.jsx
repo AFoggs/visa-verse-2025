@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Phone,
   PhoneOff,
@@ -9,8 +9,9 @@ import {
   VolumeX,
   PhoneCall,
   PhoneIncoming,
-  X,
 } from 'lucide-react';
+
+const CALL_TIMEOUT_MS = 10000; // 10 seconds
 
 function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
   const [callState, setCallState] = useState('idle'); // idle, calling, incoming, connected
@@ -24,6 +25,8 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
   const peerConnectionRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const callTimerRef = useRef(null);
+  const callTimeoutRef = useRef(null);
+  const pendingOfferRef = useRef(null);
 
   const iceServers = {
     iceServers: [
@@ -46,18 +49,58 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
       clearInterval(callTimerRef.current);
       callTimerRef.current = null;
     }
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
+    pendingOfferRef.current = null;
     setCallDuration(0);
   }, []);
 
-  // Initialize audio stream
+  // Initialize audio stream with iPhone Safari compatibility
   const initializeAudio = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Your browser does not support audio calls');
+      }
+
+      // Request microphone permission with Safari-compatible constraints
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
       return stream;
     } catch (err) {
       console.error('Error accessing microphone:', err);
-      setError('Could not access microphone. Please check permissions.');
+
+      // Provide more helpful error messages
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Microphone access denied. Please allow microphone access in your browser settings and reload the page.');
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setError('No microphone found. Please connect a microphone and try again.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setError('Microphone is in use by another application. Please close other apps using the microphone.');
+      } else if (err.name === 'OverconstrainedError') {
+        // Try again with simpler constraints for older devices
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          localStreamRef.current = stream;
+          return stream;
+        } catch (fallbackErr) {
+          setError('Could not access microphone. Please check your device settings.');
+          throw fallbackErr;
+        }
+      } else {
+        setError('Could not access microphone. Please check permissions and try again.');
+      }
       throw err;
     }
   };
@@ -79,11 +122,20 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
       remoteStreamRef.current = event.streams[0];
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = event.streams[0];
+        // For iOS Safari, we need to play on user interaction
+        remoteAudioRef.current.play().catch(e => {
+          console.log('Auto-play prevented, will play on user interaction');
+        });
       }
     };
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
+        // Clear timeout when connected
+        if (callTimeoutRef.current) {
+          clearTimeout(callTimeoutRef.current);
+          callTimeoutRef.current = null;
+        }
         setCallState('connected');
         // Start call timer
         callTimerRef.current = setInterval(() => {
@@ -121,6 +173,14 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
         offer: pc.localDescription,
         callerId: userId,
       });
+
+      // Set timeout for unanswered calls
+      callTimeoutRef.current = setTimeout(() => {
+        if (callState === 'calling') {
+          setError('Call timed out - no answer');
+          handleEndCall();
+        }
+      }, CALL_TIMEOUT_MS);
     } catch (err) {
       console.error('Error starting call:', err);
       setCallState('idle');
@@ -129,10 +189,17 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
   };
 
   // Answer incoming call
-  const answerCall = async (offer) => {
+  const answerCall = async () => {
     try {
       setError(null);
       setCallState('connecting');
+
+      const offer = pendingOfferRef.current;
+      if (!offer) {
+        setError('Call offer expired');
+        setCallState('idle');
+        return;
+      }
 
       const stream = await initializeAudio();
       const pc = createPeerConnection();
@@ -171,6 +238,7 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
   // Decline incoming call
   const declineCall = () => {
     socket?.emit('voice_call_decline', { roomId: matchId });
+    pendingOfferRef.current = null;
     setCallState('idle');
   };
 
@@ -204,15 +272,27 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
     if (!socket) return;
 
     const handleCallOffer = ({ offer, callerId }) => {
-      if (callerId !== userId) {
+      if (callerId !== userId && callState === 'idle') {
+        pendingOfferRef.current = offer;
         setCallState('incoming');
-        // Store offer for when user answers
-        socket._pendingOffer = offer;
+
+        // Auto-decline after timeout
+        callTimeoutRef.current = setTimeout(() => {
+          if (callState === 'incoming') {
+            declineCall();
+          }
+        }, CALL_TIMEOUT_MS);
       }
     };
 
     const handleCallAnswer = async ({ answer }) => {
       try {
+        // Clear the calling timeout
+        if (callTimeoutRef.current) {
+          clearTimeout(callTimeoutRef.current);
+          callTimeoutRef.current = null;
+        }
+
         if (peerConnectionRef.current) {
           await peerConnectionRef.current.setRemoteDescription(
             new RTCSessionDescription(answer)
@@ -259,7 +339,7 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
       socket.off('voice_call_end', handleCallEnd);
       socket.off('voice_call_decline', handleCallDecline);
     };
-  }, [socket, userId, cleanup]);
+  }, [socket, userId, cleanup, callState]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -273,7 +353,7 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
     return (
       <div className="flex flex-col items-center gap-3">
         {error && (
-          <p className="text-error-400 text-sm text-center">{error}</p>
+          <p className="text-error-400 text-sm text-center max-w-xs">{error}</p>
         )}
         <button
           onClick={startCall}
@@ -282,6 +362,9 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
           <Phone size={20} />
           Start Voice Call
         </button>
+        <p className="text-dark-400 text-xs text-center">
+          Call will timeout after 10 seconds if not answered
+        </p>
       </div>
     );
   }
@@ -306,7 +389,7 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
             <PhoneOff size={24} />
           </button>
           <button
-            onClick={() => answerCall(socket._pendingOffer)}
+            onClick={answerCall}
             className="w-14 h-14 rounded-full bg-success-400 hover:bg-success-500 flex items-center justify-center text-white transition-colors"
           >
             <Phone size={24} />
@@ -347,7 +430,14 @@ function VoiceCall({ socket, matchId, userId, otherUserName, onClose }) {
       animate={{ opacity: 1, scale: 1 }}
       className="bg-dark-700 rounded-xl p-6 border border-success-400/30 text-center"
     >
-      <audio ref={remoteAudioRef} autoPlay />
+      {/* Hidden audio element for remote stream */}
+      <audio
+        ref={remoteAudioRef}
+        autoPlay
+        playsInline
+        // For iOS Safari
+        webkit-playsinline="true"
+      />
 
       <div className="flex items-center justify-center gap-2 mb-2">
         <div className="w-3 h-3 rounded-full bg-success-400 animate-pulse" />

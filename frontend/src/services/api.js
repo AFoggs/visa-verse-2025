@@ -139,6 +139,16 @@ export const gamesApi = {
       body: JSON.stringify({ gameType }),
     }),
 
+  acceptGame: (matchId) =>
+    fetchWithAuth(`/api/games/${matchId}/accept`, {
+      method: 'POST',
+    }),
+
+  declineGame: (matchId) =>
+    fetchWithAuth(`/api/games/${matchId}/decline`, {
+      method: 'POST',
+    }),
+
   submitMove: (matchId, move) =>
     fetchWithAuth(`/api/games/${matchId}/move`, {
       method: 'POST',

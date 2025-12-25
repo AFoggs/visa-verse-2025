@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ArrowRight, RefreshCw, MessageCircle } from 'lucide-react';
+import { Check, RefreshCw, MessageCircle, X } from 'lucide-react';
 
 function WouldYouRatherGame({ gameState, userId, otherUserName, onSubmitMove, onClose }) {
   const [submitting, setSubmitting] = useState(false);
@@ -11,6 +11,11 @@ function WouldYouRatherGame({ gameState, userId, otherUserName, onSubmitMove, on
   const bothChosen = myChoice !== undefined && otherChoice !== undefined;
   const isComplete = gameState.status === 'complete';
   const isRevealed = gameState.status === 'revealed' || bothChosen;
+
+  // Check if user has voted for next prompt
+  const myVote = gameState.nextPromptVotes?.[userId];
+  const otherVote = Object.keys(gameState.nextPromptVotes || {}).find(id => id !== userId);
+  const waitingForOtherVote = myVote && !otherVote;
 
   const handleChoice = async (choice) => {
     if (myChoice !== undefined) return;
@@ -25,16 +30,48 @@ function WouldYouRatherGame({ gameState, userId, otherUserName, onSubmitMove, on
     }
   };
 
-  const handleNextPrompt = async () => {
+  const handleVoteNextPrompt = async () => {
     setSubmitting(true);
     try {
       await onSubmitMove({
-        type: 'next_prompt',
+        type: 'vote_next',
       });
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleEndGame = async () => {
+    setSubmitting(true);
+    try {
+      await onSubmitMove({
+        type: 'end_game',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Game complete
+  if (isComplete) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-dark-700 rounded-xl p-6 border border-dark-600"
+      >
+        <div className="text-center mb-4">
+          <div className="text-4xl mb-2">🎉</div>
+          <h3 className="text-xl font-semibold">Game Over!</h3>
+          <p className="text-dark-300 text-sm">Rounds played: {gameState.round || 1}</p>
+        </div>
+
+        <button onClick={onClose} className="btn-primary w-full">
+          Continue Chatting
+        </button>
+      </motion.div>
+    );
+  }
 
   // Show results when both have chosen or game is revealed
   if (isRevealed && gameState.prompt) {
@@ -49,10 +86,11 @@ function WouldYouRatherGame({ gameState, userId, otherUserName, onSubmitMove, on
         <div className="text-center mb-4">
           <div className="text-4xl mb-2">🤔</div>
           <h3 className="text-lg font-semibold">Would You Rather</h3>
+          <p className="text-dark-400 text-xs">Round {gameState.round || 1}</p>
           {sameChoice ? (
-            <p className="text-success-400 text-sm">You both chose the same! 🎉</p>
+            <p className="text-success-400 text-sm mt-1">You both chose the same! 🎉</p>
           ) : (
-            <p className="text-accent-400 text-sm">Interesting - different choices!</p>
+            <p className="text-accent-400 text-sm mt-1">Interesting - different choices!</p>
           )}
         </div>
 
@@ -106,19 +144,49 @@ function WouldYouRatherGame({ gameState, userId, otherUserName, onSubmitMove, on
           </div>
         </div>
 
+        {/* Voting status for next prompt */}
+        {waitingForOtherVote && (
+          <div className="bg-primary-400/10 border border-primary-400/30 rounded-lg p-3 mb-4 text-center">
+            <p className="text-primary-400 text-sm">
+              Waiting for {otherUserName} to vote for another round...
+            </p>
+          </div>
+        )}
+
+        {otherVote && !myVote && (
+          <div className="bg-accent-400/10 border border-accent-400/30 rounded-lg p-3 mb-4 text-center">
+            <p className="text-accent-400 text-sm">
+              {otherUserName} wants to play another round!
+            </p>
+          </div>
+        )}
+
         <div className="flex gap-2">
-          <button
-            onClick={handleNextPrompt}
-            disabled={submitting}
-            className="btn-secondary flex-1 flex items-center justify-center gap-2"
-          >
-            <RefreshCw size={16} className={submitting ? 'animate-spin' : ''} />
-            Another One
-          </button>
-          <button onClick={onClose} className="btn-primary flex-1 flex items-center justify-center gap-2">
-            <MessageCircle size={16} />
-            Discuss
-          </button>
+          {!myVote ? (
+            <>
+              <button
+                onClick={handleEndGame}
+                disabled={submitting}
+                className="btn-secondary flex-1 flex items-center justify-center gap-2"
+              >
+                <X size={16} />
+                End Game
+              </button>
+              <button
+                onClick={handleVoteNextPrompt}
+                disabled={submitting}
+                className="btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                <RefreshCw size={16} className={submitting ? 'animate-spin' : ''} />
+                Another One
+              </button>
+            </>
+          ) : (
+            <button onClick={onClose} className="btn-secondary flex-1 flex items-center justify-center gap-2">
+              <MessageCircle size={16} />
+              Chat While Waiting
+            </button>
+          )}
         </div>
       </motion.div>
     );
@@ -161,7 +229,7 @@ function WouldYouRatherGame({ gameState, userId, otherUserName, onSubmitMove, on
           <div className="text-4xl mb-2">🤔</div>
           <h3 className="text-xl font-semibold mb-1">Would You Rather...</h3>
           <p className="text-dark-400 text-sm">
-            Both of you choose, then reveal!
+            Round {gameState.round || 1} - Both of you choose, then reveal!
           </p>
         </div>
 

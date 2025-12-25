@@ -3,7 +3,7 @@ import { getDb } from '../config/firebase.js';
 
 const router = Router();
 
-// Start a game
+// Start a game (sends invitation)
 router.post('/:matchId/start', async (req, res) => {
   try {
     const { matchId } = req.params;
@@ -26,57 +26,13 @@ router.post('/:matchId/start', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    let gameState;
-
-    switch (gameType) {
-      case 'two_truths':
-        gameState = {
-          type: 'two_truths',
-          status: 'waiting_submission',
-          currentPlayer: req.user.uid,
-          submissions: {},
-          guesses: {},
-          round: 1,
-        };
-        break;
-
-      case 'twenty_questions':
-        gameState = {
-          type: 'twenty_questions',
-          status: 'waiting_topic',
-          currentPlayer: req.user.uid,
-          topic: null,
-          questions: [],
-          questionsRemaining: 20,
-        };
-        break;
-
-      case 'word_association':
-        const startWords = ['Ocean', 'Dream', 'Adventure', 'Music', 'Coffee', 'Stars'];
-        gameState = {
-          type: 'word_association',
-          status: 'active',
-          currentPlayer: req.user.uid,
-          chain: [startWords[Math.floor(Math.random() * startWords.length)]],
-          turnTimeout: 30,
-        };
-        break;
-
-      case 'would_you_rather':
-        // Get a random prompt
-        const prompt = getRandomWouldYouRatherPrompt();
-        gameState = {
-          type: 'would_you_rather',
-          status: 'choosing',
-          prompt,
-          choices: {},
-          round: 1,
-        };
-        break;
-
-      default:
-        return res.status(400).json({ error: 'Invalid game type' });
-    }
+    // Create a pending game invitation
+    const gameState = {
+      type: gameType,
+      status: 'pending_acceptance',
+      initiator: req.user.uid,
+      createdAt: new Date().toISOString(),
+    };
 
     // Save game state
     const convDoc = await db.collection('conversations').doc(matchId).get();
@@ -100,11 +56,11 @@ router.post('/:matchId/start', async (req, res) => {
     // Notify other user via socket
     const io = req.app.get('io');
     if (io) {
-      io.to(matchId).emit('game_started', {
+      io.to(matchId).emit('game_invitation', {
         matchId,
         gameType,
         gameState,
-        startedBy: req.user.uid,
+        invitedBy: req.user.uid,
       });
     }
 
@@ -112,6 +68,147 @@ router.post('/:matchId/start', async (req, res) => {
   } catch (error) {
     console.error('Start game error:', error);
     res.status(500).json({ error: 'Failed to start game' });
+  }
+});
+
+// Accept game invitation
+router.post('/:matchId/accept', async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const db = getDb();
+
+    const convDoc = await db.collection('conversations').doc(matchId).get();
+    if (!convDoc.exists) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const convData = convDoc.data();
+    const pendingGame = convData.gameState;
+
+    if (!pendingGame || pendingGame.status !== 'pending_acceptance') {
+      return res.status(400).json({ error: 'No pending game invitation' });
+    }
+
+    // Cannot accept your own invitation
+    if (pendingGame.initiator === req.user.uid) {
+      return res.status(400).json({ error: 'Cannot accept your own invitation' });
+    }
+
+    // Initialize the actual game based on type
+    let gameState;
+
+    switch (pendingGame.type) {
+      case 'two_truths':
+        gameState = {
+          type: 'two_truths',
+          status: 'waiting_submission',
+          currentPlayer: pendingGame.initiator,
+          submissions: {},
+          guesses: {},
+          round: 1,
+        };
+        break;
+
+      case 'twenty_questions':
+      case '20_questions':
+        gameState = {
+          type: 'twenty_questions',
+          status: 'waiting_topic',
+          topicSetter: pendingGame.initiator,
+          guesser: req.user.uid,
+          topic: null,
+          questions: [],
+          questionsRemaining: 20,
+        };
+        break;
+
+      case 'word_association':
+        const startWords = ['Ocean', 'Dream', 'Adventure', 'Music', 'Coffee', 'Stars'];
+        gameState = {
+          type: 'word_association',
+          status: 'active',
+          currentPlayer: pendingGame.initiator,
+          chain: [startWords[Math.floor(Math.random() * startWords.length)]],
+          turnTimeout: 30,
+        };
+        break;
+
+      case 'would_you_rather':
+        const prompt = getRandomWouldYouRatherPrompt();
+        gameState = {
+          type: 'would_you_rather',
+          status: 'choosing',
+          prompt,
+          choices: {},
+          nextPromptVotes: {},
+          round: 1,
+        };
+        break;
+
+      default:
+        return res.status(400).json({ error: 'Invalid game type' });
+    }
+
+    await db.collection('conversations').doc(matchId).update({
+      gameState,
+      updatedAt: new Date(),
+    });
+
+    // Notify via socket
+    const io = req.app.get('io');
+    if (io) {
+      io.to(matchId).emit('game_started', {
+        matchId,
+        gameType: pendingGame.type,
+        gameState,
+        acceptedBy: req.user.uid,
+      });
+    }
+
+    res.json({ gameState });
+  } catch (error) {
+    console.error('Accept game error:', error);
+    res.status(500).json({ error: 'Failed to accept game' });
+  }
+});
+
+// Decline game invitation
+router.post('/:matchId/decline', async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const db = getDb();
+
+    const convDoc = await db.collection('conversations').doc(matchId).get();
+    if (!convDoc.exists) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    const convData = convDoc.data();
+    const pendingGame = convData.gameState;
+
+    if (!pendingGame || pendingGame.status !== 'pending_acceptance') {
+      return res.status(400).json({ error: 'No pending game invitation' });
+    }
+
+    // Clear the game state
+    await db.collection('conversations').doc(matchId).update({
+      gameState: null,
+      updatedAt: new Date(),
+    });
+
+    // Notify via socket
+    const io = req.app.get('io');
+    if (io) {
+      io.to(matchId).emit('game_declined', {
+        matchId,
+        declinedBy: req.user.uid,
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Decline game error:', error);
+    res.status(500).json({ error: 'Failed to decline game' });
   }
 });
 
@@ -245,11 +342,17 @@ function handleTwentyQuestionsMove(gameState, playerId, move) {
   const newState = { ...gameState };
 
   if (move.type === 'set_topic') {
+    // Only the topic setter can set the topic
+    if (playerId !== newState.topicSetter) {
+      return newState; // Ignore if wrong player
+    }
     newState.topic = move.topic;
     newState.status = 'asking';
-    // Switch to other player
-    newState.currentPlayer = null; // Will be set by other player asking
   } else if (move.type === 'question') {
+    // Only the guesser can ask questions
+    if (playerId !== newState.guesser) {
+      return newState; // Ignore if wrong player
+    }
     newState.questions.push({
       question: move.question,
       askedBy: playerId,
@@ -258,19 +361,27 @@ function handleTwentyQuestionsMove(gameState, playerId, move) {
     newState.questionsRemaining--;
     newState.status = 'answering';
   } else if (move.type === 'answer') {
+    // Only the topic setter can answer
+    if (playerId !== newState.topicSetter) {
+      return newState; // Ignore if wrong player
+    }
     const lastQuestion = newState.questions[newState.questions.length - 1];
-    if (lastQuestion) {
+    if (lastQuestion && lastQuestion.answer === null) {
       lastQuestion.answer = move.answer;
     }
 
     if (newState.questionsRemaining === 0) {
-      newState.status = 'complete';
+      newState.status = 'final_guess';
     } else {
       newState.status = 'asking';
     }
   } else if (move.type === 'guess') {
+    // Only the guesser can make the final guess
+    if (playerId !== newState.guesser) {
+      return newState; // Ignore if wrong player
+    }
     newState.finalGuess = move.guess;
-    newState.correct = move.guess.toLowerCase() === newState.topic.toLowerCase();
+    newState.correct = move.guess.toLowerCase().trim() === newState.topic.toLowerCase().trim();
     newState.status = 'complete';
   }
 
@@ -304,14 +415,29 @@ function handleWouldYouRatherMove(gameState, playerId, move) {
     const numChoices = Object.keys(newState.choices).length;
     if (numChoices === 2) {
       newState.status = 'revealed';
+      // Reset next prompt votes when revealing
+      newState.nextPromptVotes = {};
     }
-  } else if (move.type === 'next_prompt') {
-    // Start a new round with a fresh prompt
-    const newPrompt = getRandomWouldYouRatherPrompt();
-    newState.prompt = newPrompt;
-    newState.choices = {};
-    newState.status = 'choosing';
-    newState.round = (newState.round || 1) + 1;
+  } else if (move.type === 'vote_next') {
+    // Vote for next prompt - requires both players to vote
+    if (!newState.nextPromptVotes) {
+      newState.nextPromptVotes = {};
+    }
+    newState.nextPromptVotes[playerId] = true;
+
+    // Check if both players have voted for next
+    const numVotes = Object.keys(newState.nextPromptVotes).length;
+    if (numVotes === 2) {
+      // Both agreed - get new prompt
+      const newPrompt = getRandomWouldYouRatherPrompt();
+      newState.prompt = newPrompt;
+      newState.choices = {};
+      newState.nextPromptVotes = {};
+      newState.status = 'choosing';
+      newState.round = (newState.round || 1) + 1;
+    }
+  } else if (move.type === 'end_game') {
+    newState.status = 'complete';
   }
 
   return newState;
