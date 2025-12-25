@@ -302,6 +302,44 @@ async function clearAllMatches() {
   console.log('\n✓ All matches cleared! Discovery should show all users now.');
 }
 
+async function clearAllUsers() {
+  console.log('⚠️  CLEARING ALL USERS FROM DATABASE...\n');
+
+  // Delete all users
+  const usersSnapshot = await db.collection('users').get();
+  let userCount = 0;
+  for (const doc of usersSnapshot.docs) {
+    await doc.ref.delete();
+    userCount++;
+  }
+  console.log(`✓ Deleted ${userCount} users`);
+
+  // Delete all matches
+  const matchesSnapshot = await db.collection('matches').get();
+  let matchCount = 0;
+  for (const doc of matchesSnapshot.docs) {
+    await doc.ref.delete();
+    matchCount++;
+  }
+  console.log(`✓ Deleted ${matchCount} matches`);
+
+  // Delete all conversations
+  const convsSnapshot = await db.collection('conversations').get();
+  let convCount = 0;
+  for (const doc of convsSnapshot.docs) {
+    // Also delete messages subcollection
+    const messagesSnapshot = await doc.ref.collection('messages').get();
+    for (const msgDoc of messagesSnapshot.docs) {
+      await msgDoc.ref.delete();
+    }
+    await doc.ref.delete();
+    convCount++;
+  }
+  console.log(`✓ Deleted ${convCount} conversations`);
+
+  console.log('\n✓ Database cleared! All users, matches, and conversations deleted.');
+}
+
 // Main
 const command = process.argv[2];
 
@@ -315,6 +353,18 @@ if (command === 'clear') {
     .then(() => process.exit(0));
 } else if (command === 'clear-matches') {
   clearAllMatches().then(() => process.exit(0));
+} else if (command === 'clear-all') {
+  clearAllUsers().then(() => process.exit(0));
+} else if (command === 'help') {
+  console.log(`
+Database Seed Commands:
+  npm run seed              - Create test users
+  npm run seed:clear        - Delete test users only
+  npm run seed:reset        - Clear test users and reseed
+  npm run seed:clear-matches - Clear all matches/conversations, reset connections
+  npm run seed:clear-all    - ⚠️  DELETE ALL users, matches, and conversations
+  `);
+  process.exit(0);
 } else {
   seedUsers().then(() => process.exit(0));
 }

@@ -9,7 +9,9 @@
     "seed": "node src/scripts/seed.js",
     "seed:clear": "node src/scripts/seed.js clear",
     "seed:reset": "node src/scripts/seed.js reset",
-    "seed:clear-matches": "node src/scripts/seed.js clear-matches"
+    "seed:clear-matches": "node src/scripts/seed.js clear-matches",
+    "seed:clear-all": "node src/scripts/seed.js clear-all",
+    "seed:help": "node src/scripts/seed.js help"
   },
   "dependencies": {
     "express": "^4.18.2",

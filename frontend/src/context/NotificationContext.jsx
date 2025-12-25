@@ -31,7 +31,8 @@ export function NotificationProvider({ children }) {
 
   // Save unread counts to localStorage when they change
   useEffect(() => {
-    if (user?.uid && Object.keys(unreadCounts).length > 0) {
+    if (user?.uid) {
+      // Always save, even when empty (to clear old notifications)
       localStorage.setItem(`unread_${user.uid}`, JSON.stringify(unreadCounts));
     }
   }, [unreadCounts, user?.uid]);
