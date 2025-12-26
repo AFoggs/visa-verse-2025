@@ -1,38 +1,41 @@
 # VisaVerse Deployment Guide
 
-This guide covers deploying VisaVerse to Firebase Hosting (frontend) with a separate backend service.
+Deploy VisaVerse for free using Firebase Hosting (frontend) + Render (backend).
 
 ## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Firebase Project                          │
+│                    Firebase (Free Tier)                      │
 ├─────────────────────────────────────────────────────────────┤
-│  Firebase Hosting     │  Firestore      │  Authentication   │
-│  (Frontend SPA)       │  (Database)     │  (User Auth)      │
-└───────────┬───────────┴────────┬────────┴─────────┬─────────┘
-            │                    │                  │
-            │                    ▼                  │
-            │         ┌──────────────────┐          │
-            └────────►│  Backend Server  │◄─────────┘
-                      │  (Cloud Run /    │
-                      │   Railway /      │
-                      │   Render)        │
-                      └────────┬─────────┘
-                               │
-                               ▼
-                      ┌──────────────────┐
-                      │  Anthropic API   │
-                      │  (Claude AI)     │
-                      └──────────────────┘
+│  Hosting            │  Firestore        │  Authentication   │
+│  (Frontend SPA)     │  (Database)       │  (User Auth)      │
+│  10GB/month         │  1GB, 50K reads   │  50K MAU          │
+└───────────┬─────────┴────────┬──────────┴─────────┬─────────┘
+            │                  │                    │
+            │                  ▼                    │
+            │       ┌──────────────────┐            │
+            └──────►│  Render (Free)   │◄───────────┘
+                    │  Backend + API   │
+                    │  750 hrs/month   │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │  Anthropic API   │
+                    │  (Pay per use)   │
+                    └──────────────────┘
 ```
 
-## Prerequisites
+## Free Tier Limits
 
-1. **Firebase CLI** installed: `npm install -g firebase-tools`
-2. **Firebase Project** created at [console.firebase.google.com](https://console.firebase.google.com)
-3. **Anthropic API Key** for Claude AI companion
-4. A backend hosting platform account (Railway, Render, or Google Cloud Run)
+| Service | Free Tier |
+|---------|-----------|
+| Firebase Hosting | 10GB storage, 360MB/day transfer |
+| Firestore | 1GB storage, 50K reads/day, 20K writes/day |
+| Firebase Auth | 50,000 monthly active users |
+| Render | 750 hours/month (spins down after 15 min idle) |
+| Anthropic | Pay-per-use (~$3/million tokens) |
 
 ---
 
@@ -41,51 +44,104 @@ This guide covers deploying VisaVerse to Firebase Hosting (frontend) with a sepa
 ### 1.1 Create Firebase Project
 
 1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Click "Add project" and follow the wizard
-3. Enable Google Analytics (optional)
+2. Click **Add project** → name it (e.g., `visaverse-demo`)
+3. Disable Google Analytics (optional for demo)
+4. Click **Create project**
 
-### 1.2 Enable Firebase Services
+### 1.2 Enable Services
 
-In your Firebase project, enable:
+**Authentication:**
+1. Go to **Authentication** → **Get started**
+2. Click **Sign-in method** tab
+3. Enable **Email/Password**
 
-- **Authentication** → Sign-in method → Email/Password
-- **Firestore Database** → Create database (start in production mode)
-- **Hosting** → Get started
+**Firestore:**
+1. Go to **Firestore Database** → **Create database**
+2. Select **Start in production mode**
+3. Choose a region (e.g., `us-central1`)
 
-### 1.3 Get Firebase Configuration
+### 1.3 Get Firebase Web Config
 
-1. Go to Project Settings → General → Your apps
-2. Click "Add app" → Web (</>)
-3. Register app and copy the config object
+1. Go to **Project Settings** (gear icon) → **General**
+2. Scroll to **Your apps** → Click **</>** (Web)
+3. Register app name: `visaverse-web`
+4. **Copy the config object** - you'll need these values:
+   ```javascript
+   apiKey: "AIza...",
+   authDomain: "your-project.firebaseapp.com",
+   projectId: "your-project-id",
+   storageBucket: "your-project.appspot.com",
+   messagingSenderId: "123456789",
+   appId: "1:123456789:web:abc123"
+   ```
 
 ### 1.4 Generate Service Account Key
 
-1. Go to Project Settings → Service accounts
-2. Click "Generate new private key"
-3. Save as `firebase-service-account.json` (keep secure, never commit!)
+1. Go to **Project Settings** → **Service accounts**
+2. Click **Generate new private key**
+3. Save the JSON file securely (never commit this!)
+4. You'll need `client_email` and `private_key` from this file
 
 ---
 
-## Step 2: Configure Local Environment
+## Step 2: Deploy Backend to Render
 
-### 2.1 Update .firebaserc
+### 2.1 Create Render Account
 
-Edit `.firebaserc` in the project root:
+1. Go to [render.com](https://render.com)
+2. Sign up with GitHub (recommended for auto-deploy)
 
-```json
-{
-  "projects": {
-    "default": "your-actual-project-id"
-  }
-}
-```
+### 2.2 Create Web Service
 
-### 2.2 Frontend Environment (.env)
+1. Click **New** → **Web Service**
+2. Connect your GitHub repository
+3. Configure the service:
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `visaverse-backend` |
+| **Region** | Oregon (US West) or nearest |
+| **Branch** | `main` (or your branch) |
+| **Root Directory** | `backend` |
+| **Runtime** | `Node` |
+| **Build Command** | `npm install` |
+| **Start Command** | `npm start` |
+| **Instance Type** | `Free` |
+
+### 2.3 Add Environment Variables
+
+Click **Environment** and add these variables:
+
+| Key | Value |
+|-----|-------|
+| `NODE_ENV` | `production` |
+| `FIREBASE_PROJECT_ID` | Your Firebase project ID |
+| `FIREBASE_CLIENT_EMAIL` | From service account JSON (`client_email`) |
+| `FIREBASE_PRIVATE_KEY` | From service account JSON (`private_key`) - include the `-----BEGIN/END-----` parts |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key (`sk-ant-...`) |
+| `CORS_ORIGINS` | `https://your-project.web.app` (update after Firebase deploy) |
+| `JWT_SECRET` | Generate a random string (e.g., `openssl rand -base64 32`) |
+
+> **Note:** For `FIREBASE_PRIVATE_KEY`, paste the entire key including newlines. Render handles multi-line values correctly.
+
+### 2.4 Deploy
+
+1. Click **Create Web Service**
+2. Wait for deployment (2-3 minutes)
+3. Copy your URL: `https://visaverse-backend.onrender.com`
+
+> **Note:** Free tier spins down after 15 minutes of inactivity. First request after idle takes 30-60 seconds.
+
+---
+
+## Step 3: Configure Frontend
+
+### 3.1 Create Frontend Environment File
 
 Create `frontend/.env`:
 
 ```bash
-# Firebase Configuration (from Firebase Console)
+# Firebase Configuration
 VITE_FIREBASE_API_KEY=AIza...
 VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your-project-id
@@ -93,213 +149,165 @@ VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
 VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 
-# Backend API URL (update after deploying backend)
-VITE_API_URL=https://your-backend-url.com
+# Backend URL (from Render)
+VITE_API_URL=https://visaverse-backend.onrender.com
 ```
 
-### 2.3 Backend Environment (.env)
+### 3.2 Update Firebase Project ID
 
-Create `backend/.env`:
+Edit `.firebaserc` in the project root:
 
-```bash
-PORT=5000
-NODE_ENV=production
-
-# Firebase Admin (use one method)
-# Method 1: Service account file path
-FIREBASE_SERVICE_ACCOUNT_KEY=./firebase-service-account.json
-
-# Method 2: Environment variables (preferred for cloud deployment)
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-
-# Anthropic API
-ANTHROPIC_API_KEY=sk-ant-...
-
-# CORS (your Firebase Hosting URL)
-CORS_ORIGINS=https://your-project.web.app,https://your-custom-domain.com
-
-# JWT Secret (generate a secure random string)
-JWT_SECRET=your-secure-random-string-here
-```
-
----
-
-## Step 3: Deploy Backend
-
-Choose one of these platforms:
-
-### Option A: Railway (Recommended for simplicity)
-
-1. Create account at [railway.app](https://railway.app)
-2. Click "New Project" → "Deploy from GitHub repo"
-3. Select your repository
-4. Set root directory to `backend`
-5. Add environment variables from Step 2.3
-6. Railway auto-detects Node.js and deploys
-7. Copy the generated URL (e.g., `https://visaverse-backend.up.railway.app`)
-
-### Option B: Render
-
-1. Create account at [render.com](https://render.com)
-2. Click "New" → "Web Service"
-3. Connect your GitHub repository
-4. Configure:
-   - **Root Directory**: `backend`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-5. Add environment variables
-6. Copy the generated URL
-
-### Option C: Google Cloud Run
-
-```bash
-# From backend directory
-cd backend
-
-# Build and deploy
-gcloud run deploy visaverse-backend \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars "NODE_ENV=production,ANTHROPIC_API_KEY=sk-ant-..."
+```json
+{
+  "projects": {
+    "default": "your-project-id"
+  }
+}
 ```
 
 ---
 
 ## Step 4: Deploy Frontend to Firebase
 
-### 4.1 Update Frontend Environment
-
-Update `frontend/.env` with your deployed backend URL:
+### 4.1 Install Firebase CLI
 
 ```bash
-VITE_API_URL=https://your-backend-url.com
+npm install -g firebase-tools
 ```
 
-### 4.2 Build Frontend
+### 4.2 Login to Firebase
 
 ```bash
+firebase login
+```
+
+### 4.3 Build and Deploy
+
+```bash
+# From project root
 cd frontend
 npm install
 npm run build
-```
+cd ..
 
-### 4.3 Deploy to Firebase Hosting
-
-```bash
-# From project root
-firebase login
+# Deploy to Firebase Hosting
 firebase deploy --only hosting
 ```
 
-Your site will be live at: `https://your-project.web.app`
+Your site is now live at: `https://your-project.web.app`
+
+### 4.4 Update Render CORS
+
+Go back to Render dashboard and update `CORS_ORIGINS`:
+
+```
+https://your-project.web.app,https://your-project.firebaseapp.com
+```
 
 ---
 
-## Step 5: Deploy Firestore Rules & Indexes
+## Step 5: Deploy Firestore Rules
 
 ```bash
 # From project root
-firebase deploy --only firestore:rules
-firebase deploy --only firestore:indexes
+firebase deploy --only firestore:rules,firestore:indexes
 ```
 
 ---
 
-## Quick Deploy Commands
+## Quick Reference Commands
 
 ```bash
-# Full deployment (from project root)
-cd frontend && npm run build && cd ..
-firebase deploy
+# Install dependencies
+npm run install:all
 
-# Frontend only
-cd frontend && npm run build && cd ..
-firebase deploy --only hosting
+# Local development
+npm run dev:frontend    # http://localhost:3000
+npm run dev:backend     # http://localhost:5000
 
-# Firestore rules only
-firebase deploy --only firestore:rules
+# Run tests
+npm run test
+
+# Deploy frontend only
+npm run deploy:hosting
+
+# Deploy everything (frontend + Firestore rules)
+npm run deploy
 ```
-
----
-
-## Environment Variables Checklist
-
-### Frontend (Firebase Hosting)
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `VITE_FIREBASE_API_KEY` | Firebase API key | Yes |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain | Yes |
-| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID | Yes |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket | Yes |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging ID | Yes |
-| `VITE_FIREBASE_APP_ID` | Firebase app ID | Yes |
-| `VITE_API_URL` | Backend API URL | Yes |
-
-### Backend (Railway/Render/Cloud Run)
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `PORT` | Server port (usually auto-set) | No |
-| `NODE_ENV` | Set to `production` | Yes |
-| `FIREBASE_PROJECT_ID` | Firebase project ID | Yes |
-| `FIREBASE_CLIENT_EMAIL` | Service account email | Yes |
-| `FIREBASE_PRIVATE_KEY` | Service account private key | Yes |
-| `ANTHROPIC_API_KEY` | Claude API key | Yes |
-| `CORS_ORIGINS` | Allowed origins (comma-separated) | Yes |
-| `JWT_SECRET` | Secret for JWT tokens | Yes |
 
 ---
 
 ## Troubleshooting
 
-### CORS Errors
+### "Failed to fetch" or CORS Errors
 
-Ensure `CORS_ORIGINS` in backend includes your Firebase Hosting URL:
-```
-CORS_ORIGINS=https://your-project.web.app,https://your-project.firebaseapp.com
-```
+1. Check `CORS_ORIGINS` in Render includes your Firebase URL
+2. Ensure both `https://your-project.web.app` AND `https://your-project.firebaseapp.com` are listed
+3. Redeploy backend after changing environment variables
+
+### Backend Cold Start (30-60 second delay)
+
+This is normal on Render's free tier. The first request after 15 minutes of inactivity wakes up the server. Options:
+- Use a cron job to ping the health endpoint every 14 minutes
+- Upgrade to Render's paid tier ($7/month) for always-on
+
+### AI Companion Not Responding
+
+1. Check `ANTHROPIC_API_KEY` is set correctly in Render
+2. View Render logs for error messages
+3. Verify you have API credits at [console.anthropic.com](https://console.anthropic.com)
 
 ### Firebase Auth Errors
 
-- Check that Email/Password auth is enabled in Firebase Console
-- Verify `VITE_FIREBASE_*` variables match your project
+1. Verify Email/Password is enabled in Firebase Console
+2. Check all `VITE_FIREBASE_*` variables match your project config
+3. Ensure authorized domains include your Firebase Hosting URL
 
-### AI Companion Not Working
+### WebSocket/Chat Issues
 
-- Verify `ANTHROPIC_API_KEY` is set correctly
-- Check backend logs for Claude API errors
-
-### WebSocket Connection Failed
-
-- Ensure your backend hosting supports WebSocket connections
-- Railway and Render support WebSockets by default
+Render supports WebSockets on free tier. If issues persist:
+1. Check browser console for connection errors
+2. Verify `VITE_API_URL` doesn't have a trailing slash
+3. Check Render logs for Socket.io errors
 
 ---
 
-## Custom Domain (Optional)
+## Updating Your Deployment
 
-1. Go to Firebase Console → Hosting
-2. Click "Add custom domain"
-3. Follow DNS configuration steps
-4. Update `CORS_ORIGINS` in backend to include new domain
+### Frontend Changes
+
+```bash
+cd frontend && npm run build && cd ..
+firebase deploy --only hosting
+```
+
+### Backend Changes
+
+Push to GitHub - Render auto-deploys from your connected branch.
+
+### Environment Variable Changes
+
+Update in Render dashboard → **Environment** → Save → **Manual Deploy**
 
 ---
 
-## Monitoring
+## Cost Summary
 
-- **Firebase Console**: View hosting analytics and Firestore usage
-- **Backend Platform**: Check Railway/Render dashboard for logs and metrics
-- **Anthropic Console**: Monitor Claude API usage
+For a demo/staging site with moderate usage:
+
+| Service | Monthly Cost |
+|---------|--------------|
+| Firebase (Hosting + Auth + Firestore) | $0 |
+| Render (Backend) | $0 |
+| Anthropic Claude API | ~$1-5 (usage dependent) |
+| **Total** | **~$1-5/month** |
 
 ---
 
-## Security Reminders
+## Next Steps
 
-- Never commit `.env` files or service account keys
-- Use environment variables in production
-- Regularly rotate API keys and secrets
-- Review Firestore rules for your security requirements
+1. **Custom Domain**: Firebase Console → Hosting → Add custom domain
+2. **Monitoring**: Check Firebase Console and Render dashboard for usage
+3. **Upgrade Path**: When ready for production, consider:
+   - Render Starter ($7/mo) - no cold starts
+   - Firebase Blaze plan - pay-as-you-go for higher limits
