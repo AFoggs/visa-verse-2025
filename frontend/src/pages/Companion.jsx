@@ -34,7 +34,7 @@ function Companion() {
           setMessages([
             {
               role: 'assistant',
-              content: `Hi ${userProfile?.profile?.name || 'there'}! I'm your AI companion on VisaVerse. I'm here to chat, learn about you, and help you connect with locals and travelers. What's on your mind today?`,
+              content: `Hi ${userProfile?.profile?.name || 'there'}! I'm your AI companion on 3Degrees. I'm here to chat, learn about you, and help you connect with locals and travelers. What's on your mind today?`,
               timestamp: new Date().toISOString(),
             },
           ]);

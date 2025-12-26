@@ -1,8 +1,8 @@
 {
-  "name": "visaverse",
+  "name": "3degrees",
   "version": "1.0.0",
   "private": true,
-  "description": "VisaVerse - Connect locals and travelers through shared interests",
+  "description": "3Degrees - Connect locals and travelers through shared interests",
   "scripts": {
     "install:all": "npm install --prefix frontend && npm install --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",

@@ -44,7 +44,7 @@ function MainLayout() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center">
               <Globe className="text-white" size={22} />
             </div>
-            <span className="text-xl font-semibold gradient-text">VisaVerse</span>
+            <span className="text-xl font-semibold gradient-text">3Degrees</span>
           </NavLink>
 
           {/* Navigation */}

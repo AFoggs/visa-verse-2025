@@ -1,8 +1,8 @@
-# VisaVerse
+# 3Degrees
 
 **Feel less alone while moving across the world**
 
-VisaVerse is an AI-powered connection platform that intentionally matches **locals and travelers** based on destination, goals, and reasons for participation. It helps reduce social friction in global mobility by connecting people before and during their journey.
+3Degrees is an AI-powered connection platform that intentionally matches **locals and travelers** based on destination, goals, and reasons for participation. It helps reduce social friction in global mobility by connecting people before and during their journey.
 
 *Built for the VisaVerse AI Hackathon 2025*
 
@@ -10,7 +10,7 @@ VisaVerse is an AI-powered connection platform that intentionally matches **loca
 
 Relocating, studying, working, or traveling across borders is not just a logistical challenge — it is a human one. Newcomers often arrive without trusted local connections, cultural context, or a sense of belonging. Meanwhile, many locals want to welcome newcomers but lack a structured way to do so.
 
-VisaVerse uses an AI companion to understand user intent and context, then connects people based on their **destination city or country** for community, professional, or experiential connections.
+3Degrees uses an AI companion to understand user intent and context, then connects people based on their **destination city or country** for community, professional, or experiential connections.
 
 ### Two User Modes
 
@@ -50,12 +50,7 @@ Each user provides structured mobility data:
 ### Connection Phases
 - **Stranger** - Potential AI-matched connections with compatibility scores
 - **Connection** - Active conversations with match reasons visible
-- **Friend** - Upgraded relationships with extended profile access
-
-### Games
-- Two Truths and a Lie
-- Twenty Questions
-- Word Association
+- **Friend** - Upgraded relationships with extended profile access (including photo)
 
 ## Tech Stack
 
@@ -65,6 +60,70 @@ Each user provides structured mobility data:
 - **Authentication:** Firebase Auth
 - **AI:** Claude API (Anthropic)
 - **Real-time:** Socket.io
+
+## The Matching Algorithm
+
+The matching algorithm uses a multi-factor scoring system that prioritizes **destination alignment** and **complementary roles** (Local ↔ Traveler pairing).
+
+### Hard Filters (Must Pass)
+
+Before any scoring, matches must pass these requirements:
+
+1. **Same destination country** - Both users must be in/going to the same country
+2. **Age preference compatibility** - Both users' age preferences must be mutually satisfied
+3. **Communication preference compatibility** - Users with conflicting preferences (text-only vs voice-only) are filtered out
+
+### Scoring System
+
+Matches that pass hard filters receive a weighted compatibility score:
+
+#### Mobility Scoring (20% weight, up to 57 base points)
+
+| Factor | Points | Description |
+|--------|--------|-------------|
+| Same destination country | +20 | Required baseline match |
+| Same city | +6 | Bonus when both specify the same city |
+| Local ↔ Traveler match | +12 | Complementary role pairing |
+| Local-Traveler alignment bonus | +4 to +8 | Extra points based on reason alignment |
+| Same connection intent | +8 | Both seeking Community, Career, or Experience |
+| Same goal | +6 | Both have matching primary goals |
+| Same travel reason | +5 | For Traveler-Traveler matches with same purpose |
+
+#### Local-Traveler Alignment Bonuses
+
+When a Local matches with a Traveler, additional points are awarded based on compatible reasons:
+
+| Local Reason | Traveler Reason | Bonus |
+|--------------|-----------------|-------|
+| Welcome Others | Any | +6 |
+| Professional Network | Career | +8 |
+| Community Building | Relocating or School | +6 |
+| Cultural Exchange | Not Tourism | +5 |
+| Language Practice | Any | +4 |
+
+#### Traditional Compatibility Scores
+
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Interest Score | 25% | Jaccard similarity of interests + shared interest bonus |
+| Style Score | 20% | Conversational style and energy level compatibility |
+| Value Score | 20% | Shared values from personality fingerprint |
+| Goal Score | 15% | Keyword matching in "why here" responses |
+
+### Match Prioritization
+
+Final results are sorted by:
+1. **Complementary mode first** - Local ↔ Traveler matches appear before same-mode matches
+2. **Compatibility score** - Higher scores ranked first
+
+### Explainable Match Reasons
+
+Every match includes up to 3 human-readable reasons:
+- "Local ↔ Traveler match"
+- "Both in Toronto" or "Same destination: Canada"
+- "Community connection" (matching intent)
+- "Both looking to make friends" (matching goal)
+- "3 shared interests"
 
 ## Project Structure
 
@@ -104,13 +163,8 @@ Each user provides structured mobility data:
 git clone <repository-url>
 cd visa-verse-2025
 
-# Install frontend dependencies
-cd frontend
-npm install
-
-# Install backend dependencies
-cd ../backend
-npm install
+# Install all dependencies
+npm run install:all
 ```
 
 ### 2. Configure Firebase
@@ -130,17 +184,6 @@ cp .env.example .env
 # Edit .env with your Firebase config from Firebase Console → Project Settings → General
 ```
 
-Required frontend variables:
-```
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-VITE_API_URL=http://localhost:5000
-```
-
 **Backend (`backend/.env`)**
 ```bash
 cd backend
@@ -148,36 +191,30 @@ cp .env.example .env
 # Edit .env with your Firebase and Anthropic credentials
 ```
 
-Required backend variables:
-```
-PORT=5000
-FIREBASE_SERVICE_ACCOUNT_KEY=./firebase-service-account.json
-ANTHROPIC_API_KEY=your_anthropic_api_key
-CORS_ORIGINS=http://localhost:3000
-```
-
-### 4. Seed Test Users (Optional)
-
-```bash
-cd backend
-node src/scripts/seed.js
-```
-
-This creates demo users with pre-configured mobility data for testing.
-
-### 5. Run Locally
+### 4. Run Locally
 
 ```bash
 # Terminal 1: Start backend
-cd backend
-npm run dev
+npm run dev:backend
 
 # Terminal 2: Start frontend
-cd frontend
-npm run dev
+npm run dev:frontend
 ```
 
 Visit http://localhost:3000
+
+### 5. Run Tests
+
+```bash
+# Run all tests
+npm test
+
+# Backend tests only
+npm run test:backend
+
+# Frontend tests only
+npm run test:frontend
+```
 
 ## API Endpoints
 
@@ -189,8 +226,6 @@ Visit http://localhost:3000
 - `PUT /api/users/mobility` - Update mobility context
 - `GET /api/users/friends` - Get friends list
 - `GET /api/users/connections` - Get connections list
-- `GET /api/users/pending-requests` - Get pending connection requests
-- `GET /api/users/sent-requests` - Get sent connection requests
 
 ### Companion
 - `POST /api/companion/chat` - Chat with AI companion
@@ -202,90 +237,31 @@ Visit http://localhost:3000
 ### Matches
 - `GET /api/matches` - Get all matches
 - `GET /api/matches/suggested` - Get suggested matches (with match reasons)
-- `GET /api/matches/:matchId` - Get specific match
 - `POST /api/matches/connect` - Connect with user
-- `POST /api/matches/decline` - Decline match with feedback
 - `POST /api/matches/accept/:matchId` - Accept connection request
 - `POST /api/matches/:matchId/friend-request` - Request friendship
-- `POST /api/matches/:matchId/remove` - Remove connection
-- `POST /api/matches/:matchId/report` - Report user
 
 ### Chat
 - `GET /api/chat/:matchId` - Get conversation
 - `POST /api/chat/:matchId/message` - Send message
 - `GET /api/chat/:matchId/icebreakers` - Get AI icebreakers
-- `GET /api/chat/:matchId/topic-prompt` - Get topic prompt
-
-### Games
-- `POST /api/games/:matchId/start` - Start a game
-- `POST /api/games/:matchId/move` - Submit game move
-- `GET /api/games/:matchId/state` - Get game state
-
-## The Matching Algorithm
-
-### Required Filters
-- **Same destination country** (required)
-- City-level match when both users specify a city
-
-### Scoring Boosts
-| Factor | Boost |
-|--------|-------|
-| Local ↔ Traveler match | +12 |
-| Same connection intent | +8 |
-| Same city | +6 |
-| Shared goal | +6 |
-| Same travel/local reason | +5 |
-| Each shared interest | +3 |
-
-### Explainable Match Reasons
-Every match includes human-readable reasons:
-- "Local ↔ Traveler match"
-- "Same destination: Toronto, Canada"
-- "Both interested in: Community connections"
-- "Shared goal: Feel welcome"
-- "3 shared interests"
-
-## Demo Scenario
-
-1. A traveler says: "I'm moving to Toronto for school."
-2. The AI companion gathers destination, goals, and intent.
-3. The platform suggests:
-   - A local in Toronto who enjoys welcoming newcomers
-   - Another traveler arriving around the same time
-4. The user sees **why** each match was suggested.
-5. A conversation begins — reducing isolation before arrival.
 
 ## Deployment
 
-### Frontend (Vercel/Netlify)
-
-```bash
-cd frontend
-npm run build
-# Deploy dist/ folder or connect GitHub repo
-```
-
-### Backend (Railway/Render)
-
-1. Connect your GitHub repository
-2. Set environment variables in the dashboard
-3. Deploy with automatic builds
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions using:
+- **Frontend**: Firebase Hosting (free tier)
+- **Backend**: Render (free tier)
+- **Database**: Firebase Firestore (free tier)
 
 ## Privacy & Safety
 
 - Companion conversations are 100% private
 - Only aggregated personality insights used for matching
+- Profile photos only visible to friends
 - No legal, immigration, or visa advice provided
 - Reporting and blocking mechanisms supported
 - Firebase Auth handles authentication securely
 - Rate limiting on all endpoints
-
-## Future Enhancements
-
-- Language-aware matching
-- Event-based connections (meetups, group activities)
-- Time-bound travel windows
-- Partner integrations with relocation platforms
 
 ## License
 
@@ -293,4 +269,6 @@ MIT
 
 ---
 
-*VisaVerse - Connection infrastructure for a globally mobile world.*
+*3Degrees - Connection infrastructure for a globally mobile world.*
+
+*Built for the VisaVerse AI Hackathon 2025*

@@ -54,7 +54,7 @@ describe('Claude Service', () => {
 
     it('should generate a response successfully', async () => {
       mockAnthropicClient.messages.create.mockResolvedValue({
-        content: [{ text: 'Great to hear from you! What brings you to VisaVerse today?' }],
+        content: [{ text: 'Great to hear from you! What brings you to 3Degrees today?' }],
       });
 
       const result = await generateCompanionResponse(
@@ -65,7 +65,7 @@ describe('Claude Service', () => {
       );
 
       expect(result).toHaveProperty('message');
-      expect(result.message).toBe('Great to hear from you! What brings you to VisaVerse today?');
+      expect(result.message).toBe('Great to hear from you! What brings you to 3Degrees today?');
       expect(mockAnthropicClient.messages.create).toHaveBeenCalled();
     });
 

@@ -276,7 +276,7 @@ function Onboarding() {
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400/20 to-accent-400/20 flex items-center justify-center mx-auto mb-4">
                     <Sparkles className="text-primary-400" size={32} />
                   </div>
-                  <h1 className="text-2xl font-bold mb-2">Welcome to VisaVerse</h1>
+                  <h1 className="text-2xl font-bold mb-2">Welcome to 3Degrees</h1>
                   <p className="text-dark-300">Let's get you connected with the right people</p>
                 </div>
 
@@ -320,7 +320,7 @@ function Onboarding() {
                         ) : (
                           <p className="text-red-400 text-sm flex items-center gap-2">
                             <Info size={16} />
-                            You must be at least 18 years old to use VisaVerse
+                            You must be at least 18 years old to use 3Degrees
                           </p>
                         )}
                       </div>

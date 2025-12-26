@@ -43,9 +43,9 @@ function getRandomElements(arr, count) {
   return shuffled.slice(0, count);
 }
 
-const COMPANION_SYSTEM_PROMPT = `You are a unique AI companion in VisaVerse, a platform that connects locals and travelers in destination cities around the world. Your personality should feel natural and human-like, not robotic or formulaic.
+const COMPANION_SYSTEM_PROMPT = `You are a unique AI companion in 3Degrees, a platform that connects locals and travelers in destination cities around the world. Your personality should feel natural and human-like, not robotic or formulaic.
 
-VisaVerse Context:
+3Degrees Context:
 - This platform helps people who are relocating, studying abroad, traveling, or working in a new country connect with locals who want to welcome them
 - Users are either LOCALS (living in a place, wanting to help newcomers) or TRAVELERS (moving to or visiting a new place)
 - The focus is on meaningful connections that help people feel welcome in their destination
@@ -182,7 +182,7 @@ export async function generateIcebreakersForUser(requestingUser, otherUser, shar
       }
     }
 
-    const prompt = `Generate 3 personalized icebreaker questions for ${requestingUser.profile?.name || 'someone'} to ask ${otherUser.profile?.name || 'their new connection'} on VisaVerse, a platform connecting locals and travelers.
+    const prompt = `Generate 3 personalized icebreaker questions for ${requestingUser.profile?.name || 'someone'} to ask ${otherUser.profile?.name || 'their new connection'} on 3Degrees, a platform connecting locals and travelers.
 
 ${mobilityContext ? `Context: ${mobilityContext}` : ''}
 

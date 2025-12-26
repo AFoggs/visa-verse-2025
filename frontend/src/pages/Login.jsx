@@ -48,7 +48,7 @@ function Login() {
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center">
             <Globe className="text-white" size={26} />
           </div>
-          <span className="text-2xl font-semibold gradient-text">VisaVerse</span>
+          <span className="text-2xl font-semibold gradient-text">3Degrees</span>
         </Link>
 
         {/* Card */}

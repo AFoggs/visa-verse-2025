@@ -57,7 +57,7 @@ function Landing() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-5xl md:text-7xl font-bold text-center mb-6"
           >
-            <span className="gradient-text">VisaVerse</span>
+            <span className="gradient-text">3Degrees</span>
           </motion.h1>
 
           {/* Tagline */}
@@ -254,7 +254,7 @@ function Landing() {
           transition={{ delay: 0.1 }}
           className="text-dark-300 mb-8"
         >
-          Whether you're moving somewhere new or welcoming those who are, VisaVerse helps you feel less alone.
+          Whether you're moving somewhere new or welcoming those who are, 3Degrees helps you feel less alone.
         </motion.p>
         <Link to="/register" className="btn-primary px-8 py-4 text-lg inline-flex items-center gap-2">
           Get Started
@@ -266,7 +266,7 @@ function Landing() {
       <footer className="border-t border-dark-600 py-8">
         <div className="max-w-7xl mx-auto px-4 text-center text-dark-400 text-sm">
           <p>Built for VisaVerse AI Hackathon 2025</p>
-          <p className="mt-2">VisaVerse - Connection infrastructure for global mobility</p>
+          <p className="mt-2">3Degrees - Connection infrastructure for global mobility</p>
         </div>
       </footer>
     </div>
