@@ -1,7 +1,6 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import {
   Home,
-  MessageCircle,
   Users,
   User,
   Settings,
@@ -12,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 function MainLayout() {
   const { logout, userProfile } = useAuth();
