@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LocationSearch from '../components/LocationSearch';
+import DestinationSearch from '../components/DestinationSearch';
 import { userApi } from '../services/api';
 
 // Top 30 common interests
@@ -89,11 +90,6 @@ const LOCAL_REASONS = [
   { id: 'OTHER', label: 'Other', icon: '✨' },
 ];
 
-// Common countries for quick selection
-const POPULAR_COUNTRIES = [
-  'United States', 'Canada', 'United Kingdom', 'Germany', 'France',
-  'Australia', 'Japan', 'Singapore', 'Netherlands', 'Spain',
-];
 
 function Onboarding() {
   const [step, setStep] = useState(1);
@@ -120,7 +116,6 @@ function Onboarding() {
   const [loading, setLoading] = useState(false);
   const [showMoreInterests, setShowMoreInterests] = useState(false);
   const [randomExtraInterests, setRandomExtraInterests] = useState([]);
-  const [customCountry, setCustomCountry] = useState('');
 
   const { userProfile, completeOnboarding } = useAuth();
   const navigate = useNavigate();
@@ -405,54 +400,12 @@ function Onboarding() {
                 </div>
 
                 <div className="space-y-6">
-                  {/* Country Selection */}
-                  <div>
-                    <label className="block text-sm text-dark-200 mb-2">
-                      {mobility.mode === 'LOCAL' ? 'Your Country' : 'Destination Country'} *
-                    </label>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {POPULAR_COUNTRIES.map((country) => (
-                        <button
-                          key={country}
-                          onClick={() => {
-                            setMobility({ ...mobility, area: { ...mobility.area, country } });
-                            setCustomCountry('');
-                          }}
-                          className={`px-3 py-1.5 rounded-full text-sm transition-all ${
-                            mobility.area.country === country
-                              ? 'bg-primary-400 text-white'
-                              : 'bg-dark-600 hover:bg-dark-500'
-                          }`}
-                        >
-                          {country}
-                        </button>
-                      ))}
-                    </div>
-                    <input
-                      type="text"
-                      value={customCountry || (POPULAR_COUNTRIES.includes(mobility.area.country) ? '' : mobility.area.country)}
-                      onChange={(e) => {
-                        setCustomCountry(e.target.value);
-                        setMobility({ ...mobility, area: { ...mobility.area, country: e.target.value } });
-                      }}
-                      placeholder="Or type another country..."
-                      className="input"
-                    />
-                  </div>
-
-                  {/* City (optional) */}
-                  <div>
-                    <label className="block text-sm text-dark-200 mb-2">
-                      City (optional - helps find local matches)
-                    </label>
-                    <input
-                      type="text"
-                      value={mobility.area.city}
-                      onChange={(e) => setMobility({ ...mobility, area: { ...mobility.area, city: e.target.value } })}
-                      placeholder="e.g., Toronto, Berlin, Tokyo..."
-                      className="input"
-                    />
-                  </div>
+                  {/* Country and City Selection */}
+                  <DestinationSearch
+                    value={mobility.area}
+                    onChange={(area) => setMobility({ ...mobility, area })}
+                    mode={mobility.mode}
+                  />
 
                   {/* Reason based on mode */}
                   <div>
