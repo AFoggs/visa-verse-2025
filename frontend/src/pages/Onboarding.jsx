@@ -13,9 +13,12 @@ import {
   Check,
   Info,
   Heart,
+  Plane,
+  Home,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LocationSearch from '../components/LocationSearch';
+import { userApi } from '../services/api';
 
 // Top 30 common interests
 const TOP_INTERESTS = [
@@ -50,15 +53,46 @@ function getRandomItems(arr, count) {
   return shuffled.slice(0, count);
 }
 
-const REASONS = [
-  { id: 'friends', label: 'Make new friends', icon: '👋' },
-  { id: 'interests', label: 'Find people with similar interests', icon: '🎯' },
-  { id: 'expand', label: 'Expand my social circle', icon: '🌐' },
-  { id: 'skills', label: 'Practice communication skills', icon: '💬' },
-  { id: 'cultures', label: 'Meet people from different cultures', icon: '🌍' },
-  { id: 'loneliness', label: 'Combat loneliness', icon: '💙' },
-  { id: 'activities', label: 'Find activity partners', icon: '🎮' },
-  { id: 'curious', label: 'Just curious to try it', icon: '✨' },
+// Mobility goals
+const GOALS = [
+  { id: 'MAKE_FRIENDS', label: 'Make new friends', icon: '👋' },
+  { id: 'FEEL_WELCOME', label: 'Feel welcome in a new place', icon: '🏠' },
+  { id: 'HELP_OTHERS', label: 'Help newcomers feel at home', icon: '🤝' },
+  { id: 'BUILD_NETWORK', label: 'Build my professional network', icon: '💼' },
+  { id: 'EXPLORE_CITY', label: 'Explore the city with others', icon: '🗺️' },
+];
+
+// Connection intents
+const CONNECTION_INTENTS = [
+  { id: 'COMMUNITY', label: 'Community & Social', desc: 'Friendship, belonging, social events', icon: '💙' },
+  { id: 'CAREER', label: 'Career & Professional', desc: 'Networking, mentorship, opportunities', icon: '💼' },
+  { id: 'EXPERIENCE', label: 'Experience & Activities', desc: 'Tourism, activities, adventures', icon: '🎯' },
+];
+
+// Travel reasons (for travelers)
+const TRAVEL_REASONS = [
+  { id: 'RELOCATING', label: 'Relocating permanently', icon: '📦' },
+  { id: 'SCHOOL', label: 'Studying abroad', icon: '📚' },
+  { id: 'CAREER', label: 'Work or career opportunity', icon: '💼' },
+  { id: 'TOURISM', label: 'Tourism or vacation', icon: '🌴' },
+  { id: 'FAMILY', label: 'Family reasons', icon: '👨‍👩‍👧' },
+  { id: 'OTHER', label: 'Other', icon: '✨' },
+];
+
+// Local reasons (for locals)
+const LOCAL_REASONS = [
+  { id: 'WELCOME_OTHERS', label: 'Welcome newcomers to my city', icon: '🏠' },
+  { id: 'CULTURAL_EXCHANGE', label: 'Cultural exchange', icon: '🌍' },
+  { id: 'COMMUNITY_BUILDING', label: 'Help build community', icon: '🤝' },
+  { id: 'PROFESSIONAL_NETWORK', label: 'Professional networking', icon: '💼' },
+  { id: 'LANGUAGE_PRACTICE', label: 'Language practice', icon: '🗣️' },
+  { id: 'OTHER', label: 'Other', icon: '✨' },
+];
+
+// Common countries for quick selection
+const POPULAR_COUNTRIES = [
+  'United States', 'Canada', 'United Kingdom', 'Germany', 'France',
+  'Australia', 'Japan', 'Singapore', 'Netherlands', 'Spain',
 ];
 
 function Onboarding() {
@@ -67,7 +101,7 @@ function Onboarding() {
     name: '',
     dateOfBirth: '',
     location: { city: '', state: '', country: '', displayPreference: 'city' },
-    whyHere: [], // Now an array for multiple selections
+    whyHere: [],
     interests: [],
     preferences: {
       geographic: 'global',
@@ -75,9 +109,18 @@ function Onboarding() {
       communication: 'both',
     },
   });
+  const [mobility, setMobility] = useState({
+    mode: '', // 'LOCAL' or 'TRAVELER'
+    area: { country: '', city: '' },
+    travelReason: '',
+    localReason: '',
+    goal: '',
+    connectionIntent: '',
+  });
   const [loading, setLoading] = useState(false);
   const [showMoreInterests, setShowMoreInterests] = useState(false);
   const [randomExtraInterests, setRandomExtraInterests] = useState([]);
+  const [customCountry, setCustomCountry] = useState('');
 
   const { userProfile, completeOnboarding } = useAuth();
   const navigate = useNavigate();
@@ -118,7 +161,7 @@ function Onboarding() {
     return date.toISOString().split('T')[0];
   }, []);
 
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -143,31 +186,27 @@ function Onboarding() {
     }));
   };
 
-  const toggleReason = (reasonId) => {
-    setProfile((prev) => ({
-      ...prev,
-      whyHere: prev.whyHere.includes(reasonId)
-        ? prev.whyHere.filter((r) => r !== reasonId)
-        : prev.whyHere.length < 3
-          ? [...prev.whyHere, reasonId]
-          : prev.whyHere,
-    }));
-  };
-
   const handleComplete = async () => {
     setLoading(true);
     try {
-      // Convert whyHere array to labels for storage
-      const whyHereLabels = profile.whyHere.map(id =>
-        REASONS.find(r => r.id === id)?.label || id
-      );
+      // First update mobility
+      await userApi.updateMobility({
+        mode: mobility.mode,
+        area: mobility.area,
+        travelReason: mobility.mode === 'TRAVELER' ? mobility.travelReason : null,
+        localReason: mobility.mode === 'LOCAL' ? mobility.localReason : null,
+        goal: mobility.goal,
+        connectionIntent: mobility.connectionIntent,
+      });
 
+      // Then complete profile
       const profileData = {
         profile: {
           ...profile,
           age: calculatedAge,
-          whyHere: whyHereLabels.join(', '),
-          whyHereIds: profile.whyHere, // Store IDs too for reference
+          whyHere: mobility.mode === 'TRAVELER'
+            ? TRAVEL_REASONS.find(r => r.id === mobility.travelReason)?.label || ''
+            : LOCAL_REASONS.find(r => r.id === mobility.localReason)?.label || '',
         },
       };
       await completeOnboarding(profileData);
@@ -184,12 +223,15 @@ function Onboarding() {
       case 1:
         return profile.name.trim().length >= 2 && isAdult;
       case 2:
-        return profile.location.city.trim() && profile.location.country.trim();
+        return mobility.mode !== '';
       case 3:
-        return profile.whyHere.length >= 1 && profile.whyHere.length <= 3;
+        return mobility.area.country.trim().length > 0 &&
+               (mobility.mode === 'TRAVELER' ? mobility.travelReason !== '' : mobility.localReason !== '');
       case 4:
-        return profile.interests.length >= 5;
+        return mobility.goal !== '' && mobility.connectionIntent !== '';
       case 5:
+        return profile.interests.length >= 5;
+      case 6:
         return true;
       default:
         return false;
@@ -225,8 +267,8 @@ function Onboarding() {
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400/20 to-accent-400/20 flex items-center justify-center mx-auto mb-4">
                     <Sparkles className="text-primary-400" size={32} />
                   </div>
-                  <h1 className="text-2xl font-bold mb-2">Let's Get to Know You</h1>
-                  <p className="text-dark-300">First, some basics about yourself</p>
+                  <h1 className="text-2xl font-bold mb-2">Welcome to VisaVerse</h1>
+                  <p className="text-dark-300">Let's get you connected with the right people</p>
                 </div>
 
                 <div className="space-y-6">
@@ -264,20 +306,17 @@ function Onboarding() {
                         ) : (
                           <p className="text-red-400 text-sm flex items-center gap-2">
                             <Info size={16} />
-                            You must be at least 18 years old to use 3Degrees
+                            You must be at least 18 years old to use VisaVerse
                           </p>
                         )}
                       </div>
                     )}
-                    <p className="text-dark-400 text-xs mt-2">
-                      Your exact date of birth won't be shared. Only your age will be visible to others.
-                    </p>
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* Step 2: Location */}
+            {/* Step 2: Mode Selection (Local or Traveler) */}
             {step === 2 && (
               <motion.div
                 key="step2"
@@ -288,21 +327,61 @@ function Onboarding() {
               >
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400/20 to-accent-400/20 flex items-center justify-center mx-auto mb-4">
-                    <MapPin className="text-primary-400" size={32} />
+                    <Globe className="text-primary-400" size={32} />
                   </div>
-                  <h1 className="text-2xl font-bold mb-2">Where Are You?</h1>
-                  <p className="text-dark-300">This helps us find connections near you</p>
+                  <h1 className="text-2xl font-bold mb-2">Are You a Local or Traveler?</h1>
+                  <p className="text-dark-300">This helps us connect you with the right people</p>
                 </div>
 
-                <LocationSearch
-                  value={profile.location}
-                  onChange={(location) => setProfile({ ...profile, location })}
-                  placeholder="Search for your city..."
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setMobility({ ...mobility, mode: 'LOCAL', travelReason: '' })}
+                    className={`p-6 rounded-xl text-left transition-all duration-200 ${
+                      mobility.mode === 'LOCAL'
+                        ? 'bg-primary-400/20 border-2 border-primary-400'
+                        : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className="w-12 h-12 rounded-xl bg-primary-400/20 flex items-center justify-center">
+                        <Home className="text-primary-400" size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">I'm a Local</h3>
+                        <p className="text-sm text-dark-400">I live here</p>
+                      </div>
+                    </div>
+                    <p className="text-dark-300 text-sm">
+                      I want to welcome newcomers, share my city, and connect with travelers coming to my area.
+                    </p>
+                  </button>
+
+                  <button
+                    onClick={() => setMobility({ ...mobility, mode: 'TRAVELER', localReason: '' })}
+                    className={`p-6 rounded-xl text-left transition-all duration-200 ${
+                      mobility.mode === 'TRAVELER'
+                        ? 'bg-accent-400/20 border-2 border-accent-400'
+                        : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className="w-12 h-12 rounded-xl bg-accent-400/20 flex items-center justify-center">
+                        <Plane className="text-accent-400" size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">I'm a Traveler</h3>
+                        <p className="text-sm text-dark-400">I'm going somewhere</p>
+                      </div>
+                    </div>
+                    <p className="text-dark-300 text-sm">
+                      I'm relocating, studying, working, or visiting somewhere new and want to connect with people there.
+                    </p>
+                  </button>
+                </div>
               </motion.div>
             )}
 
-            {/* Step 3: Why Here - Multi-select */}
+            {/* Step 3: Destination and Reason */}
             {step === 3 && (
               <motion.div
                 key="step3"
@@ -313,54 +392,187 @@ function Onboarding() {
               >
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400/20 to-accent-400/20 flex items-center justify-center mx-auto mb-4">
-                    <Heart className="text-primary-400" size={32} />
+                    <MapPin className="text-primary-400" size={32} />
                   </div>
-                  <h1 className="text-2xl font-bold mb-2">Why Are You Here?</h1>
+                  <h1 className="text-2xl font-bold mb-2">
+                    {mobility.mode === 'LOCAL' ? 'Where Do You Live?' : 'Where Are You Going?'}
+                  </h1>
                   <p className="text-dark-300">
-                    Select up to 3 reasons ({profile.whyHere.length}/3 selected)
+                    {mobility.mode === 'LOCAL'
+                      ? 'Select your home country and city to connect with travelers'
+                      : 'Select your destination to find locals who can welcome you'}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {REASONS.map((reason) => {
-                    const isSelected = profile.whyHere.includes(reason.id);
-                    const isDisabled = !isSelected && profile.whyHere.length >= 3;
+                <div className="space-y-6">
+                  {/* Country Selection */}
+                  <div>
+                    <label className="block text-sm text-dark-200 mb-2">
+                      {mobility.mode === 'LOCAL' ? 'Your Country' : 'Destination Country'} *
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {POPULAR_COUNTRIES.map((country) => (
+                        <button
+                          key={country}
+                          onClick={() => {
+                            setMobility({ ...mobility, area: { ...mobility.area, country } });
+                            setCustomCountry('');
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                            mobility.area.country === country
+                              ? 'bg-primary-400 text-white'
+                              : 'bg-dark-600 hover:bg-dark-500'
+                          }`}
+                        >
+                          {country}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="text"
+                      value={customCountry || (POPULAR_COUNTRIES.includes(mobility.area.country) ? '' : mobility.area.country)}
+                      onChange={(e) => {
+                        setCustomCountry(e.target.value);
+                        setMobility({ ...mobility, area: { ...mobility.area, country: e.target.value } });
+                      }}
+                      placeholder="Or type another country..."
+                      className="input"
+                    />
+                  </div>
 
-                    return (
-                      <button
-                        key={reason.id}
-                        onClick={() => toggleReason(reason.id)}
-                        disabled={isDisabled}
-                        className={`p-4 rounded-xl text-left transition-all duration-200 ${
-                          isSelected
-                            ? 'bg-primary-400/20 border-2 border-primary-400'
-                            : isDisabled
-                              ? 'bg-dark-700 border-2 border-transparent opacity-50 cursor-not-allowed'
-                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
-                        }`}
-                      >
-                        <span className="flex items-center gap-3">
-                          <span className="text-2xl">{reason.icon}</span>
-                          <span className="flex-1">{reason.label}</span>
-                          {isSelected && <Check size={18} className="text-primary-400" />}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {/* City (optional) */}
+                  <div>
+                    <label className="block text-sm text-dark-200 mb-2">
+                      City (optional - helps find local matches)
+                    </label>
+                    <input
+                      type="text"
+                      value={mobility.area.city}
+                      onChange={(e) => setMobility({ ...mobility, area: { ...mobility.area, city: e.target.value } })}
+                      placeholder="e.g., Toronto, Berlin, Tokyo..."
+                      className="input"
+                    />
+                  </div>
+
+                  {/* Reason based on mode */}
+                  <div>
+                    <label className="block text-sm text-dark-200 mb-3">
+                      {mobility.mode === 'LOCAL' ? 'Why do you want to connect?' : 'Why are you traveling?'} *
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {(mobility.mode === 'LOCAL' ? LOCAL_REASONS : TRAVEL_REASONS).map((reason) => {
+                        const isSelected = mobility.mode === 'LOCAL'
+                          ? mobility.localReason === reason.id
+                          : mobility.travelReason === reason.id;
+
+                        return (
+                          <button
+                            key={reason.id}
+                            onClick={() => {
+                              if (mobility.mode === 'LOCAL') {
+                                setMobility({ ...mobility, localReason: reason.id });
+                              } else {
+                                setMobility({ ...mobility, travelReason: reason.id });
+                              }
+                            }}
+                            className={`p-3 rounded-xl text-left transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-primary-400/20 border-2 border-primary-400'
+                                : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="text-xl">{reason.icon}</span>
+                              <span className="text-sm">{reason.label}</span>
+                              {isSelected && <Check size={16} className="text-primary-400 ml-auto" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
-
-                {profile.whyHere.length === 0 && (
-                  <p className="text-center text-amber-400 text-sm mt-4">
-                    Please select at least 1 reason
-                  </p>
-                )}
               </motion.div>
             )}
 
-            {/* Step 4: Interests */}
+            {/* Step 4: Goal and Connection Intent */}
             {step === 4 && (
               <motion.div
                 key="step4"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="card"
+              >
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400/20 to-accent-400/20 flex items-center justify-center mx-auto mb-4">
+                    <Heart className="text-primary-400" size={32} />
+                  </div>
+                  <h1 className="text-2xl font-bold mb-2">What Are You Looking For?</h1>
+                  <p className="text-dark-300">Help us understand your connection goals</p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Primary Goal */}
+                  <div>
+                    <label className="block text-sm text-dark-200 mb-3">Your primary goal *</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {GOALS.map((goal) => (
+                        <button
+                          key={goal.id}
+                          onClick={() => setMobility({ ...mobility, goal: goal.id })}
+                          className={`p-3 rounded-xl text-left transition-all duration-200 ${
+                            mobility.goal === goal.id
+                              ? 'bg-primary-400/20 border-2 border-primary-400'
+                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="text-xl">{goal.icon}</span>
+                            <span className="text-sm">{goal.label}</span>
+                            {mobility.goal === goal.id && <Check size={16} className="text-primary-400 ml-auto" />}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Connection Intent */}
+                  <div>
+                    <label className="block text-sm text-dark-200 mb-3">What type of connections? *</label>
+                    <div className="space-y-2">
+                      {CONNECTION_INTENTS.map((intent) => (
+                        <button
+                          key={intent.id}
+                          onClick={() => setMobility({ ...mobility, connectionIntent: intent.id })}
+                          className={`w-full p-4 rounded-xl text-left transition-all duration-200 ${
+                            mobility.connectionIntent === intent.id
+                              ? 'bg-primary-400/20 border-2 border-primary-400'
+                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{intent.icon}</span>
+                            <div className="flex-1">
+                              <span className="block font-medium">{intent.label}</span>
+                              <span className="block text-sm text-dark-400">{intent.desc}</span>
+                            </div>
+                            {mobility.connectionIntent === intent.id && (
+                              <Check size={20} className="text-primary-400" />
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Step 5: Interests */}
+            {step === 5 && (
+              <motion.div
+                key="step5"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
@@ -472,10 +684,10 @@ function Onboarding() {
               </motion.div>
             )}
 
-            {/* Step 5: Preferences - Improved */}
-            {step === 5 && (
+            {/* Step 6: Review & Location */}
+            {step === 6 && (
               <motion.div
-                key="step5"
+                key="step6"
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
@@ -485,139 +697,75 @@ function Onboarding() {
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-400/20 to-accent-400/20 flex items-center justify-center mx-auto mb-4">
                     <Users className="text-primary-400" size={32} />
                   </div>
-                  <h1 className="text-2xl font-bold mb-2">Connection Preferences</h1>
-                  <p className="text-dark-300">
-                    These settings help us find better matches for you within the app
-                  </p>
+                  <h1 className="text-2xl font-bold mb-2">Almost Done!</h1>
+                  <p className="text-dark-300">Tell us your current location and review your profile</p>
                 </div>
 
-                <div className="space-y-8">
-                  {/* Geographic */}
+                <div className="space-y-6">
+                  {/* Current Location */}
                   <div>
-                    <div className="flex items-start gap-3 mb-3">
-                      <Globe className="text-primary-400 mt-0.5" size={20} />
-                      <div>
-                        <label className="block text-sm font-medium text-dark-100">
-                          Geographic Preference
-                        </label>
-                        <p className="text-xs text-dark-400 mt-1">
-                          Where would you like your connections to be from?
-                        </p>
-                      </div>
+                    <label className="block text-sm text-dark-200 mb-2">
+                      <MapPin className="inline mr-2" size={16} />
+                      Your Current Location
+                    </label>
+                    <LocationSearch
+                      value={profile.location}
+                      onChange={(location) => setProfile({ ...profile, location })}
+                      placeholder="Search for your current city..."
+                    />
+                    <p className="text-xs text-dark-400 mt-2">
+                      This is where you are now, not your destination.
+                    </p>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="bg-dark-700 rounded-xl p-4 space-y-3">
+                    <h3 className="font-medium text-dark-200 mb-2">Your Profile Summary</h3>
+
+                    <div className="flex items-center gap-2">
+                      {mobility.mode === 'LOCAL' ? (
+                        <Home size={16} className="text-primary-400" />
+                      ) : (
+                        <Plane size={16} className="text-accent-400" />
+                      )}
+                      <span className="text-sm">
+                        {mobility.mode === 'LOCAL' ? 'Local' : 'Traveler'} in{' '}
+                        <strong>{mobility.area.city ? `${mobility.area.city}, ` : ''}{mobility.area.country}</strong>
+                      </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { value: 'local', label: 'Local', desc: 'Same city' },
-                        { value: 'regional', label: 'Regional', desc: 'Same country' },
-                        { value: 'global', label: 'Global', desc: 'Anywhere in the world' },
-                        { value: 'online-only', label: 'Online Only', desc: 'No location preference' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() =>
-                            setProfile({
-                              ...profile,
-                              preferences: { ...profile.preferences, geographic: opt.value },
-                            })
-                          }
-                          className={`p-3 rounded-lg text-left transition-all ${
-                            profile.preferences.geographic === opt.value
-                              ? 'bg-primary-400/20 border-2 border-primary-400'
-                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
-                          }`}
-                        >
-                          <span className="block text-sm font-medium">{opt.label}</span>
-                          <span className="block text-xs text-dark-400">{opt.desc}</span>
-                        </button>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-dark-300">
+                        Looking for: {GOALS.find(g => g.id === mobility.goal)?.label}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-dark-300">
+                        Connection type: {CONNECTION_INTENTS.find(c => c.id === mobility.connectionIntent)?.label}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1 pt-2">
+                      {profile.interests.slice(0, 5).map(interest => (
+                        <span key={interest} className="px-2 py-0.5 bg-primary-400/20 text-primary-400 rounded-full text-xs">
+                          {interest}
+                        </span>
                       ))}
+                      {profile.interests.length > 5 && (
+                        <span className="px-2 py-0.5 bg-dark-600 rounded-full text-xs">
+                          +{profile.interests.length - 5} more
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Age Range */}
-                  <div>
-                    <div className="mb-3">
-                      <label className="block text-sm font-medium text-dark-100">
-                        Age Range Preference
-                      </label>
-                      <p className="text-xs text-dark-400 mt-1">
-                        Match with people within this age range of you
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { value: '±5', label: '± 5 years', desc: 'Close to your age' },
-                        { value: '±10', label: '± 10 years', desc: 'Moderate range' },
-                        { value: '±15', label: '± 15 years', desc: 'Wide range' },
-                        { value: 'any', label: 'No preference', desc: 'Open to all ages' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() =>
-                            setProfile({
-                              ...profile,
-                              preferences: { ...profile.preferences, ageRange: opt.value },
-                            })
-                          }
-                          className={`p-3 rounded-lg text-left transition-all ${
-                            profile.preferences.ageRange === opt.value
-                              ? 'bg-primary-400/20 border-2 border-primary-400'
-                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
-                          }`}
-                        >
-                          <span className="block text-sm font-medium">{opt.label}</span>
-                          <span className="block text-xs text-dark-400">{opt.desc}</span>
-                        </button>
-                      ))}
-                    </div>
+                  <div className="p-4 bg-dark-700 rounded-lg">
+                    <p className="text-xs text-dark-300 flex items-start gap-2">
+                      <Info size={14} className="flex-shrink-0 mt-0.5" />
+                      You can change any of these settings later in your profile.
+                    </p>
                   </div>
-
-                  {/* Communication */}
-                  <div>
-                    <div className="flex items-start gap-3 mb-3">
-                      <MessageSquare className="text-primary-400 mt-0.5" size={20} />
-                      <div>
-                        <label className="block text-sm font-medium text-dark-100">
-                          Communication Style
-                        </label>
-                        <p className="text-xs text-dark-400 mt-1">
-                          How do you prefer to communicate in the app?
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { value: 'text', label: 'Text', desc: 'Messages only' },
-                        { value: 'voice', label: 'Voice', desc: 'Voice/Video calls' },
-                        { value: 'both', label: 'Both', desc: 'Any communication' },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          onClick={() =>
-                            setProfile({
-                              ...profile,
-                              preferences: { ...profile.preferences, communication: opt.value },
-                            })
-                          }
-                          className={`p-3 rounded-lg text-center transition-all ${
-                            profile.preferences.communication === opt.value
-                              ? 'bg-primary-400/20 border-2 border-primary-400'
-                              : 'bg-dark-600 border-2 border-transparent hover:border-dark-500'
-                          }`}
-                        >
-                          <span className="block text-sm font-medium">{opt.label}</span>
-                          <span className="block text-xs text-dark-400">{opt.desc}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-dark-700 rounded-lg">
-                  <p className="text-xs text-dark-300 flex items-start gap-2">
-                    <Info size={14} className="flex-shrink-0 mt-0.5" />
-                    These preferences help us suggest better matches within 3Degrees.
-                    You can change these anytime in your profile settings.
-                  </p>
                 </div>
               </motion.div>
             )}
@@ -646,7 +794,7 @@ function Onboarding() {
             ) : (
               <button
                 onClick={handleComplete}
-                disabled={loading}
+                disabled={loading || !profile.location.city || !profile.location.country}
                 className="btn-success flex items-center gap-2"
               >
                 {loading ? (

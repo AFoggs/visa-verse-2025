@@ -1,34 +1,172 @@
 import { getDb } from '../config/firebase.js';
 
+// Helper functions for mobility matching
+function getArea(user) {
+  return user.mobility?.area || { country: '', city: '' };
+}
+
+function sameDestination(a, b) {
+  if (!a.country || !b.country) return false;
+  if (a.country.toLowerCase() !== b.country.toLowerCase()) return false;
+
+  // If both have cities, check city match
+  if (a.city && b.city) {
+    return a.city.toLowerCase() === b.city.toLowerCase();
+  }
+  // Country match is sufficient if city not specified
+  return true;
+}
+
+function complementaryMode(u1, u2) {
+  return (
+    (u1.mobility?.mode === 'LOCAL' && u2.mobility?.mode === 'TRAVELER') ||
+    (u1.mobility?.mode === 'TRAVELER' && u2.mobility?.mode === 'LOCAL')
+  );
+}
+
+function localTravelerAlignment(local, traveler) {
+  let score = 0;
+  const lr = local.mobility?.localReason;
+  const tr = traveler.mobility?.travelReason;
+
+  if (!lr || !tr) return score;
+
+  if (lr === 'WELCOME_OTHERS') score += 6;
+  if (lr === 'CULTURAL_EXCHANGE' && tr !== 'TOURISM') score += 5;
+  if (lr === 'PROFESSIONAL_NETWORK' && tr === 'CAREER') score += 8;
+  if (lr === 'LANGUAGE_PRACTICE') score += 4;
+  if (lr === 'COMMUNITY_BUILDING' && (tr === 'RELOCATING' || tr === 'SCHOOL')) score += 6;
+
+  return score;
+}
+
 export function calculateCompatibility(user1, user2) {
   // Hard filters first
   if (!passesHardFilters(user1, user2)) {
     return null;
   }
 
+  const matchReasons = [];
+  let mobilityScore = 0;
+
+  // Check destination matching
+  const area1 = getArea(user1);
+  const area2 = getArea(user2);
+
+  if (sameDestination(area1, area2)) {
+    mobilityScore += 20;
+    if (area1.city && area2.city && area1.city.toLowerCase() === area2.city.toLowerCase()) {
+      matchReasons.push(`Both in ${area1.city}`);
+      mobilityScore += 6; // City match bonus
+    } else {
+      matchReasons.push(`Same destination: ${area1.country}`);
+    }
+  }
+
+  // Local ↔ Traveler pairing bonus
+  if (complementaryMode(user1, user2)) {
+    mobilityScore += 12;
+    matchReasons.push('Local ↔ Traveler match');
+
+    // Calculate alignment bonus
+    const local = user1.mobility?.mode === 'LOCAL' ? user1 : user2;
+    const traveler = user1.mobility?.mode === 'TRAVELER' ? user1 : user2;
+    mobilityScore += localTravelerAlignment(local, traveler);
+  }
+
+  // Same connection intent
+  if (user1.mobility?.connectionIntent &&
+      user1.mobility?.connectionIntent === user2.mobility?.connectionIntent) {
+    mobilityScore += 8;
+    const intentLabels = {
+      'COMMUNITY': 'Community connection',
+      'CAREER': 'Professional networking',
+      'EXPERIENCE': 'Experience sharing',
+    };
+    matchReasons.push(intentLabels[user1.mobility.connectionIntent] || 'Aligned intent');
+  }
+
+  // Same goal
+  if (user1.mobility?.goal && user1.mobility?.goal === user2.mobility?.goal) {
+    mobilityScore += 6;
+    const goalLabels = {
+      'MAKE_FRIENDS': 'Both looking to make friends',
+      'FEEL_WELCOME': 'Both want to feel welcome',
+      'HELP_OTHERS': 'Both want to help others',
+      'BUILD_NETWORK': 'Both building networks',
+      'EXPLORE_CITY': 'Both want to explore',
+    };
+    if (matchReasons.length < 3) {
+      matchReasons.push(goalLabels[user1.mobility.goal] || 'Aligned goals');
+    }
+  }
+
+  // Same travel reason (for traveler-traveler matches)
+  if (user1.mobility?.mode === 'TRAVELER' && user2.mobility?.mode === 'TRAVELER') {
+    if (user1.mobility?.travelReason && user1.mobility.travelReason === user2.mobility?.travelReason) {
+      mobilityScore += 5;
+      if (matchReasons.length < 3) {
+        matchReasons.push('Same travel purpose');
+      }
+    }
+  }
+
+  // Traditional compatibility scores
   const scores = {
-    interest: calculateInterestScore(user1, user2),      // 30%
-    style: calculateStyleScore(user1, user2),             // 25%
-    value: calculateValueScore(user1, user2),             // 25%
-    goal: calculateGoalScore(user1, user2),               // 20%
+    mobility: mobilityScore,
+    interest: calculateInterestScore(user1, user2),      // 25%
+    style: calculateStyleScore(user1, user2),             // 20%
+    value: calculateValueScore(user1, user2),             // 20%
+    goal: calculateGoalScore(user1, user2),               // 15%
   };
 
+  // Weighted score - mobility is now the most important factor
   const weightedScore =
-    scores.interest * 0.30 +
-    scores.style * 0.25 +
-    scores.value * 0.25 +
-    scores.goal * 0.20;
+    scores.mobility * 0.20 +  // Mobility matching (20% of score, but can add up to 57 base points)
+    scores.interest * 0.25 +
+    scores.style * 0.20 +
+    scores.value * 0.20 +
+    scores.goal * 0.15;
+
+  // Add shared interests to reasons if we have room
+  const sharedInterests = getSharedInterests(user1, user2);
+  if (sharedInterests.length > 0 && matchReasons.length < 3) {
+    if (sharedInterests.length === 1) {
+      matchReasons.push(`Shared interest: ${sharedInterests[0]}`);
+    } else {
+      matchReasons.push(`${sharedInterests.length} shared interests`);
+    }
+  }
+
+  // Ensure we have at least one reason
+  if (matchReasons.length === 0) {
+    matchReasons.push('Potential connection');
+  }
 
   return {
-    score: Math.round(weightedScore),
+    score: Math.min(Math.round(weightedScore), 100),
     breakdown: scores,
-    sharedInterests: getSharedInterests(user1, user2),
+    sharedInterests,
+    matchReasons: matchReasons.slice(0, 3), // Return up to 3 reasons
   };
 }
 
 function passesHardFilters(user1, user2) {
   // Same user check
   if (user1.userId === user2.userId) return false;
+
+  // Both users must have mobility data OR we allow legacy matching
+  const hasMobility1 = user1.mobility?.mode && user1.mobility?.area?.country;
+  const hasMobility2 = user2.mobility?.mode && user2.mobility?.area?.country;
+
+  // If both have mobility, require same destination country
+  if (hasMobility1 && hasMobility2) {
+    const area1 = getArea(user1);
+    const area2 = getArea(user2);
+    if (!sameDestination(area1, area2)) {
+      return false;
+    }
+  }
 
   // Age preference check
   const age1 = user1.profile?.age;
@@ -43,17 +181,20 @@ function passesHardFilters(user1, user2) {
     }
   }
 
-  // Geographic preference check
+  // Geographic preference check (legacy - still applies for users without mobility)
   const geo1 = user1.profile?.preferences?.geographic;
   const geo2 = user2.profile?.preferences?.geographic;
   const loc1 = user1.profile?.location;
   const loc2 = user2.profile?.location;
 
-  if (geo1 === 'local' && loc1?.city !== loc2?.city) return false;
-  if (geo2 === 'local' && loc2?.city !== loc1?.city) return false;
+  // Only apply legacy geographic filter if no mobility data
+  if (!hasMobility1 || !hasMobility2) {
+    if (geo1 === 'local' && loc1?.city !== loc2?.city) return false;
+    if (geo2 === 'local' && loc2?.city !== loc1?.city) return false;
 
-  if (geo1 === 'regional' && loc1?.country !== loc2?.country) return false;
-  if (geo2 === 'regional' && loc2?.country !== loc1?.country) return false;
+    if (geo1 === 'regional' && loc1?.country !== loc2?.country) return false;
+    if (geo2 === 'regional' && loc2?.country !== loc1?.country) return false;
+  }
 
   // Communication preference check - only filter if both want only one type
   const comm1 = user1.profile?.preferences?.communication;
@@ -252,15 +393,28 @@ export async function getSuggestedMatches(userId, limit = 10) {
           interests: userData.profile?.interests,
           compatibilityScore: compatibility.score,
           sharedInterests: compatibility.sharedInterests,
+          matchReasons: compatibility.matchReasons,
           otherInterests: userData.profile?.interests?.filter(
             i => !compatibility.sharedInterests.includes(i)
           ),
+          // Mobility data for display
+          mobility: userData.mobility || null,
         });
       }
     });
 
-    // Sort by compatibility score
-    potentialMatches.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
+    // Sort by compatibility score, prioritizing Local ↔ Traveler matches
+    potentialMatches.sort((a, b) => {
+      // Prioritize complementary mode matches
+      const aComplementary = complementaryMode(currentUser, { mobility: a.mobility });
+      const bComplementary = complementaryMode(currentUser, { mobility: b.mobility });
+
+      if (aComplementary && !bComplementary) return -1;
+      if (!aComplementary && bComplementary) return 1;
+
+      // Then sort by compatibility score
+      return b.compatibilityScore - a.compatibilityScore;
+    });
 
     console.log('Returning potential matches:', potentialMatches.length);
     return potentialMatches.slice(0, limit);

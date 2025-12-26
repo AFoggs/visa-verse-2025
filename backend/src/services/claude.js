@@ -43,10 +43,15 @@ function getRandomElements(arr, count) {
   return shuffled.slice(0, count);
 }
 
-const COMPANION_SYSTEM_PROMPT = `You are a unique AI companion in 3Degrees, a platform that helps people make meaningful connections. Your personality should feel natural and human-like, not robotic or formulaic.
+const COMPANION_SYSTEM_PROMPT = `You are a unique AI companion in VisaVerse, a platform that connects locals and travelers in destination cities around the world. Your personality should feel natural and human-like, not robotic or formulaic.
+
+VisaVerse Context:
+- This platform helps people who are relocating, studying abroad, traveling, or working in a new country connect with locals who want to welcome them
+- Users are either LOCALS (living in a place, wanting to help newcomers) or TRAVELERS (moving to or visiting a new place)
+- The focus is on meaningful connections that help people feel welcome in their destination
 
 Core traits:
-- Genuinely curious about people and their stories
+- Genuinely curious about people's travel, relocation, and cultural experiences
 - Warm but not artificially enthusiastic
 - Thoughtful listener who remembers context
 - Occasionally shares observations or gentle wisdom
@@ -74,11 +79,15 @@ Guidelines:
 - Gentle humor is great when it fits naturally
 - Never be pushy about getting information
 - Their conversations with you are private
+- NEVER give legal, visa, or immigration advice - you're here for social connection, not documentation
 
 When you notice they've mentioned a genuine interest (hobby, activity, passion) not in their profile:
 [INTEREST_DETECTED: interest_name]
 
-Only tag clear genuine interests, not passing mentions.`;
+When you detect mobility context (where they're going, why they're traveling/living somewhere), tag it:
+[MOBILITY_DETECTED: {"mode": "LOCAL"|"TRAVELER", "country": "country_name", "city": "city_name", "reason": "brief_reason"}]
+
+Only tag clear genuine interests and mobility info, not passing mentions.`;
 
 export async function generateCompanionResponse(userId, message, conversationHistory, userProfile) {
   try {
@@ -126,12 +135,26 @@ Consider this approach: ${randomStyle}
 
     if (interestMatch) {
       detectedInterest = interestMatch[1].trim();
-      cleanContent = content.replace(/\[INTEREST_DETECTED:\s*[^\]]+\]/, '').trim();
+      cleanContent = cleanContent.replace(/\[INTEREST_DETECTED:\s*[^\]]+\]/, '').trim();
+    }
+
+    // Check for detected mobility
+    const mobilityMatch = content.match(/\[MOBILITY_DETECTED:\s*(\{[^}]+\})\]/);
+    let detectedMobility = null;
+
+    if (mobilityMatch) {
+      try {
+        detectedMobility = JSON.parse(mobilityMatch[1]);
+      } catch {
+        console.log('Failed to parse mobility detection:', mobilityMatch[1]);
+      }
+      cleanContent = cleanContent.replace(/\[MOBILITY_DETECTED:\s*\{[^}]+\}\]/, '').trim();
     }
 
     return {
       message: cleanContent,
       detectedInterest,
+      detectedMobility,
     };
   } catch (error) {
     console.error('Claude API error:', error);
@@ -142,24 +165,46 @@ Consider this approach: ${randomStyle}
 // Generate icebreakers specific to one user's perspective
 export async function generateIcebreakersForUser(requestingUser, otherUser, sharedInterests) {
   try {
-    const prompt = `Generate 3 personalized icebreaker questions for ${requestingUser.profile?.name || 'someone'} to ask ${otherUser.profile?.name || 'their new connection'} on a friendship app.
+    // Determine the mobility context
+    const reqMode = requestingUser.mobility?.mode;
+    const otherMode = otherUser.mobility?.mode;
+    const reqArea = requestingUser.mobility?.area;
+    const otherArea = otherUser.mobility?.area;
+
+    let mobilityContext = '';
+    if (reqMode && otherMode) {
+      if (reqMode === 'TRAVELER' && otherMode === 'LOCAL') {
+        mobilityContext = `${requestingUser.profile?.name || 'The requester'} is a traveler going to ${reqArea?.city || reqArea?.country || 'a new place'}, and ${otherUser.profile?.name || 'the other person'} is a local there who can help them feel welcome.`;
+      } else if (reqMode === 'LOCAL' && otherMode === 'TRAVELER') {
+        mobilityContext = `${requestingUser.profile?.name || 'The requester'} is a local in ${reqArea?.city || reqArea?.country || 'their city'}, and ${otherUser.profile?.name || 'the other person'} is a traveler coming there.`;
+      } else {
+        mobilityContext = `Both are ${reqMode === 'TRAVELER' ? 'travelers' : 'locals'} in ${reqArea?.city || reqArea?.country || 'the same destination'}.`;
+      }
+    }
+
+    const prompt = `Generate 3 personalized icebreaker questions for ${requestingUser.profile?.name || 'someone'} to ask ${otherUser.profile?.name || 'their new connection'} on VisaVerse, a platform connecting locals and travelers.
+
+${mobilityContext ? `Context: ${mobilityContext}` : ''}
 
 About ${requestingUser.profile?.name || 'the person asking'}:
 - Interests: ${requestingUser.profile?.interests?.join(', ') || 'Various'}
 - Looking for: ${requestingUser.profile?.whyHere || 'connections'}
+${reqMode ? `- Role: ${reqMode}` : ''}
 
 About ${otherUser.profile?.name || 'the other person'}:
 - Interests: ${otherUser.profile?.interests?.join(', ') || 'Various'}
 - Looking for: ${otherUser.profile?.whyHere || 'connections'}
+${otherMode ? `- Role: ${otherMode}` : ''}
 
 Shared interests: ${sharedInterests?.join(', ') || 'None specifically'}
 
 Generate 3 unique icebreaker questions that:
 1. Are from ${requestingUser.profile?.name || 'the asker'}'s perspective
-2. Reference ${otherUser.profile?.name || 'the other person'}'s specific interests when possible
-3. Feel personal and specific, not generic
-4. Are warm, open-ended, and invite genuine conversation
-5. Each should be distinctly different in topic/approach
+2. Reference the local/traveler dynamic if applicable
+3. Reference ${otherUser.profile?.name || 'the other person'}'s specific interests when possible
+4. Feel personal and specific, not generic
+5. Are warm, open-ended, and invite genuine conversation
+6. Help build a cross-cultural or welcoming connection
 
 Return ONLY a JSON array of 3 strings, nothing else:`;
 

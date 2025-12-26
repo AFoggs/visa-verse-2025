@@ -134,6 +134,14 @@ export const userApi = {
       body: JSON.stringify(updates),
     }),
 
+  getMobility: () => fetchWithAuth('/api/users/mobility'),
+
+  updateMobility: (mobility) =>
+    fetchWithAuth('/api/users/mobility', {
+      method: 'PUT',
+      body: JSON.stringify(mobility),
+    }),
+
   getFriends: () => fetchWithAuth('/api/users/friends'),
 
   getConnections: () => fetchWithAuth('/api/users/connections'),

@@ -9,8 +9,24 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Home,
+  Plane,
+  Globe,
 } from 'lucide-react';
 import { matchesApi } from '../services/api';
+
+// Mode label helpers
+const getModeIcon = (mode) => {
+  if (mode === 'LOCAL') return <Home size={16} className="text-primary-400" />;
+  if (mode === 'TRAVELER') return <Plane size={16} className="text-accent-400" />;
+  return <Globe size={16} className="text-dark-400" />;
+};
+
+const getModeLabel = (mode) => {
+  if (mode === 'LOCAL') return 'Local';
+  if (mode === 'TRAVELER') return 'Traveler';
+  return '';
+};
 
 function Discover() {
   const [matches, setMatches] = useState([]);
@@ -22,9 +38,9 @@ function Discover() {
   const [feedbackReason, setFeedbackReason] = useState('');
 
   const FEEDBACK_REASONS = [
-    'Not my type',
+    'Not what I\'m looking for',
+    'Different destination',
     'Too few shared interests',
-    'Location too far',
     'Age preference',
     'Other',
   ];
@@ -157,8 +173,7 @@ function Discover() {
         </div>
         <h2 className="text-2xl font-bold mb-4">No Matches Yet</h2>
         <p className="text-dark-300 mb-8">
-          We're working on finding people who match your vibe. Chat more with your AI companion
-          to help us understand you better!
+          We're looking for locals and travelers in your destination. Check back soon or chat with your AI companion to expand your profile!
         </p>
         <button onClick={loadMatches} className="btn-primary flex items-center gap-2 mx-auto">
           <RefreshCw size={20} />
@@ -176,7 +191,7 @@ function Discover() {
         </div>
         <h2 className="text-2xl font-bold mb-4">That's Everyone!</h2>
         <p className="text-dark-300 mb-8">
-          You've seen all current matches. Check back later for more people who match your vibe!
+          You've seen all current matches in your destination. Check back later for more connections!
         </p>
         <button onClick={loadMatches} className="btn-primary flex items-center gap-2 mx-auto">
           <RefreshCw size={20} />
@@ -231,11 +246,45 @@ function Discover() {
             <h2 className="text-2xl font-bold mb-1">
               {currentMatch?.name}, {currentMatch?.age}
             </h2>
-            <p className="text-dark-300 flex items-center justify-center gap-1">
-              <MapPin size={16} />
-              {currentMatch?.location?.city}, {currentMatch?.location?.country}
-            </p>
+
+            {/* Mobility Info */}
+            {currentMatch?.mobility && (
+              <div className="flex items-center justify-center gap-2 mb-2">
+                {getModeIcon(currentMatch.mobility.mode)}
+                <span className="text-sm">
+                  {getModeLabel(currentMatch.mobility.mode)} in{' '}
+                  {currentMatch.mobility.area?.city
+                    ? `${currentMatch.mobility.area.city}, ${currentMatch.mobility.area.country}`
+                    : currentMatch.mobility.area?.country}
+                </span>
+              </div>
+            )}
+
+            {/* Current Location (if no mobility) */}
+            {!currentMatch?.mobility && currentMatch?.location && (
+              <p className="text-dark-300 flex items-center justify-center gap-1">
+                <MapPin size={16} />
+                {currentMatch.location.city}, {currentMatch.location.country}
+              </p>
+            )}
           </div>
+
+          {/* Match Reasons */}
+          {currentMatch?.matchReasons && currentMatch.matchReasons.length > 0 && (
+            <div className="px-6 py-4 bg-dark-700/50 border-b border-dark-600">
+              <h3 className="text-xs text-dark-400 mb-2 uppercase tracking-wide">Why this match</h3>
+              <div className="flex flex-wrap gap-2">
+                {currentMatch.matchReasons.map((reason, idx) => (
+                  <span
+                    key={idx}
+                    className="px-3 py-1 bg-success-400/20 text-success-400 rounded-full text-sm"
+                  >
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Compatibility */}
           <div className="p-6 border-b border-dark-600">
@@ -266,14 +315,18 @@ function Discover() {
           <div className="p-6">
             <h3 className="text-sm text-dark-300 mb-3">Shared Interests</h3>
             <div className="flex flex-wrap gap-2">
-              {currentMatch?.sharedInterests?.map((interest) => (
-                <span
-                  key={interest}
-                  className="px-3 py-1 bg-primary-400/20 text-primary-400 rounded-full text-sm"
-                >
-                  {interest}
-                </span>
-              ))}
+              {currentMatch?.sharedInterests?.length > 0 ? (
+                currentMatch.sharedInterests.map((interest) => (
+                  <span
+                    key={interest}
+                    className="px-3 py-1 bg-primary-400/20 text-primary-400 rounded-full text-sm"
+                  >
+                    {interest}
+                  </span>
+                ))
+              ) : (
+                <span className="text-dark-400 text-sm">No shared interests yet</span>
+              )}
             </div>
             {currentMatch?.otherInterests?.length > 0 && (
               <>

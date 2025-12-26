@@ -3,6 +3,13 @@ import { getDb } from '../config/firebase.js';
 
 const router = Router();
 
+// Valid enum values for mobility
+const VALID_MODES = ['LOCAL', 'TRAVELER'];
+const VALID_TRAVEL_REASONS = ['RELOCATING', 'SCHOOL', 'CAREER', 'TOURISM', 'FAMILY', 'OTHER'];
+const VALID_LOCAL_REASONS = ['WELCOME_OTHERS', 'CULTURAL_EXCHANGE', 'COMMUNITY_BUILDING', 'PROFESSIONAL_NETWORK', 'LANGUAGE_PRACTICE', 'OTHER'];
+const VALID_GOALS = ['MAKE_FRIENDS', 'FEEL_WELCOME', 'HELP_OTHERS', 'BUILD_NETWORK', 'EXPLORE_CITY'];
+const VALID_CONNECTION_INTENTS = ['COMMUNITY', 'CAREER', 'EXPERIENCE'];
+
 // Get current user profile
 router.get('/me', async (req, res) => {
   try {
@@ -382,6 +389,103 @@ router.put('/profile', async (req, res) => {
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Get user mobility data
+router.get('/mobility', async (req, res) => {
+  try {
+    const db = getDb();
+    const userDoc = await db.collection('users').doc(req.user.uid).get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = userDoc.data();
+    res.json({ mobility: userData.mobility || null });
+  } catch (error) {
+    console.error('Get mobility error:', error);
+    res.status(500).json({ error: 'Failed to get mobility data' });
+  }
+});
+
+// Update user mobility data
+router.put('/mobility', async (req, res) => {
+  try {
+    const db = getDb();
+    const { mode, area, travelReason, localReason, goal, connectionIntent } = req.body;
+
+    // Validate mode
+    if (!mode || !VALID_MODES.includes(mode)) {
+      return res.status(400).json({ error: 'Invalid mode. Must be LOCAL or TRAVELER' });
+    }
+
+    // Validate area
+    if (!area || !area.country || typeof area.country !== 'string' || area.country.trim().length === 0) {
+      return res.status(400).json({ error: 'Destination country is required' });
+    }
+
+    // Validate city if provided
+    if (area.city && (typeof area.city !== 'string' || area.city.length > 100)) {
+      return res.status(400).json({ error: 'Invalid city format' });
+    }
+
+    // Validate goal
+    if (goal && !VALID_GOALS.includes(goal)) {
+      return res.status(400).json({ error: 'Invalid goal' });
+    }
+
+    // Validate connectionIntent
+    if (connectionIntent && !VALID_CONNECTION_INTENTS.includes(connectionIntent)) {
+      return res.status(400).json({ error: 'Invalid connection intent' });
+    }
+
+    // Mode-specific validation
+    if (mode === 'TRAVELER') {
+      if (travelReason && !VALID_TRAVEL_REASONS.includes(travelReason)) {
+        return res.status(400).json({ error: 'Invalid travel reason' });
+      }
+      if (localReason) {
+        return res.status(400).json({ error: 'Local reason should not be set for travelers' });
+      }
+    } else if (mode === 'LOCAL') {
+      if (localReason && !VALID_LOCAL_REASONS.includes(localReason)) {
+        return res.status(400).json({ error: 'Invalid local reason' });
+      }
+      if (travelReason) {
+        return res.status(400).json({ error: 'Travel reason should not be set for locals' });
+      }
+    }
+
+    // Build mobility object
+    const mobility = {
+      mode,
+      area: {
+        country: area.country.trim(),
+        city: area.city ? area.city.trim() : '',
+      },
+      goal: goal || null,
+      connectionIntent: connectionIntent || null,
+      updatedAt: new Date(),
+    };
+
+    // Add mode-specific reason
+    if (mode === 'TRAVELER') {
+      mobility.travelReason = travelReason || null;
+      mobility.localReason = null;
+    } else {
+      mobility.localReason = localReason || null;
+      mobility.travelReason = null;
+    }
+
+    await db.collection('users').doc(req.user.uid).update({ mobility });
+
+    const updatedDoc = await db.collection('users').doc(req.user.uid).get();
+    res.json({ mobility: updatedDoc.data().mobility });
+  } catch (error) {
+    console.error('Update mobility error:', error);
+    res.status(500).json({ error: 'Failed to update mobility data' });
   }
 });
 

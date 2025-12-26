@@ -57,24 +57,34 @@ function initFirebase() {
 }
 
 const TEST_USERS = [
+  // Traveler with city - going to Toronto for school
   {
     oderId: 'test-user-alice',
     email: 'alice@test.com',
     profile: {
       name: 'Alice',
-      age: 25,
-      location: { city: 'New York', country: 'USA' },
-      whyHere: 'Make new friends',
-      interests: ['Technology', 'Gaming', 'Music', 'Movies', 'Travel'],
+      age: 22,
+      location: { city: 'San Francisco', country: 'USA' },
+      whyHere: 'Studying abroad',
+      interests: ['Technology', 'Photography', 'Music', 'Coffee', 'Travel'],
       preferences: {
         geographic: 'global',
         ageRange: 'any',
         communication: 'both',
       },
     },
+    mobility: {
+      mode: 'TRAVELER',
+      area: { country: 'Canada', city: 'Toronto' },
+      travelReason: 'SCHOOL',
+      localReason: null,
+      goal: 'FEEL_WELCOME',
+      connectionIntent: 'COMMUNITY',
+      updatedAt: new Date(),
+    },
     extendedProfile: {
-      bio: 'Software developer who loves gaming and exploring new places!',
-      additionalInterests: ['Coding', 'Board Games'],
+      bio: 'Moving to Toronto for grad school! Looking for locals to show me around and help me settle in.',
+      additionalInterests: ['Coding', 'Hiking'],
     },
     companionData: {
       personalityFingerprint: {
@@ -82,30 +92,40 @@ const TEST_USERS = [
         energyLevel: 7,
         humorStyle: 'playful',
         depthPreference: 'moderate',
-        values: ['creativity', 'connection', 'growth'],
+        values: ['learning', 'connection', 'growth'],
       },
     },
     connections: { strangers: [], connections: [], friends: [] },
     onboardingComplete: true,
   },
+  // Local in Toronto - welcoming newcomers
   {
     oderId: 'test-user-bob',
     email: 'bob@test.com',
     profile: {
       name: 'Bob',
       age: 28,
-      location: { city: 'Los Angeles', country: 'USA' },
-      whyHere: 'Find people with similar interests',
-      interests: ['Technology', 'Fitness', 'Music', 'Photography', 'Hiking'],
+      location: { city: 'Toronto', country: 'Canada' },
+      whyHere: 'Welcome newcomers to my city',
+      interests: ['Technology', 'Fitness', 'Music', 'Food', 'Hiking'],
       preferences: {
         geographic: 'global',
         ageRange: 'any',
         communication: 'both',
       },
     },
+    mobility: {
+      mode: 'LOCAL',
+      area: { country: 'Canada', city: 'Toronto' },
+      travelReason: null,
+      localReason: 'WELCOME_OTHERS',
+      goal: 'HELP_OTHERS',
+      connectionIntent: 'COMMUNITY',
+      updatedAt: new Date(),
+    },
     extendedProfile: {
-      bio: 'Fitness enthusiast and amateur photographer. Love outdoor adventures!',
-      additionalInterests: ['Running', 'Nature'],
+      bio: 'Born and raised in Toronto. Love showing newcomers the best spots in the city!',
+      additionalInterests: ['Running', 'Local Events'],
     },
     companionData: {
       personalityFingerprint: {
@@ -113,20 +133,21 @@ const TEST_USERS = [
         energyLevel: 8,
         humorStyle: 'witty',
         depthPreference: 'moderate',
-        values: ['health', 'adventure', 'creativity'],
+        values: ['community', 'adventure', 'helping'],
       },
     },
     connections: { strangers: [], connections: [], friends: [] },
     onboardingComplete: true,
   },
+  // Traveler with country only - relocating to Canada
   {
     oderId: 'test-user-carol',
     email: 'carol@test.com',
     profile: {
       name: 'Carol',
-      age: 24,
+      age: 30,
       location: { city: 'London', country: 'UK' },
-      whyHere: 'Meet people from different cultures',
+      whyHere: 'Relocating permanently',
       interests: ['Reading', 'Art', 'Music', 'Travel', 'Cooking'],
       preferences: {
         geographic: 'global',
@@ -134,8 +155,17 @@ const TEST_USERS = [
         communication: 'both',
       },
     },
+    mobility: {
+      mode: 'TRAVELER',
+      area: { country: 'Canada', city: '' },
+      travelReason: 'RELOCATING',
+      localReason: null,
+      goal: 'MAKE_FRIENDS',
+      connectionIntent: 'COMMUNITY',
+      updatedAt: new Date(),
+    },
     extendedProfile: {
-      bio: 'Book lover and art enthusiast. Always planning my next trip!',
+      bio: 'Relocating to Canada for a fresh start. Would love to meet locals who can share tips about life there!',
       additionalInterests: ['Writing', 'Museums'],
     },
     companionData: {
@@ -150,63 +180,83 @@ const TEST_USERS = [
     connections: { strangers: [], connections: [], friends: [] },
     onboardingComplete: true,
   },
+  // Local in Canada (Vancouver) - professional networking
   {
     oderId: 'test-user-david',
     email: 'david@test.com',
     profile: {
       name: 'David',
-      age: 30,
-      location: { city: 'Toronto', country: 'Canada' },
-      whyHere: 'Expand my social circle',
-      interests: ['Gaming', 'Movies', 'Science', 'Technology', 'Board Games'],
+      age: 35,
+      location: { city: 'Vancouver', country: 'Canada' },
+      whyHere: 'Professional networking',
+      interests: ['Technology', 'Entrepreneurship', 'Fitness', 'Coffee', 'Networking'],
       preferences: {
         geographic: 'global',
         ageRange: 'any',
         communication: 'both',
       },
     },
+    mobility: {
+      mode: 'LOCAL',
+      area: { country: 'Canada', city: 'Vancouver' },
+      travelReason: null,
+      localReason: 'PROFESSIONAL_NETWORK',
+      goal: 'BUILD_NETWORK',
+      connectionIntent: 'CAREER',
+      updatedAt: new Date(),
+    },
     extendedProfile: {
-      bio: 'Sci-fi nerd and board game collector. Looking for gaming buddies!',
-      additionalInterests: ['Anime', 'Podcasts'],
+      bio: 'Tech entrepreneur in Vancouver. Happy to connect with newcomers looking to break into the local tech scene.',
+      additionalInterests: ['Startups', 'Investing'],
     },
     companionData: {
       personalityFingerprint: {
         conversationalStyle: 'casual',
-        energyLevel: 6,
+        energyLevel: 7,
         humorStyle: 'playful',
         depthPreference: 'moderate',
-        values: ['fun', 'friendship', 'learning'],
+        values: ['innovation', 'growth', 'connection'],
       },
     },
     connections: { strangers: [], connections: [], friends: [] },
     onboardingComplete: true,
   },
+  // Traveler going to Canada for work
   {
     oderId: 'test-user-emma',
     email: 'emma@test.com',
     profile: {
       name: 'Emma',
-      age: 26,
+      age: 27,
       location: { city: 'Sydney', country: 'Australia' },
-      whyHere: 'Combat loneliness',
-      interests: ['Yoga', 'Meditation', 'Nature', 'Cooking', 'Music'],
+      whyHere: 'Work or career opportunity',
+      interests: ['Technology', 'Yoga', 'Nature', 'Coffee', 'Music'],
       preferences: {
         geographic: 'global',
         ageRange: 'any',
         communication: 'both',
       },
     },
+    mobility: {
+      mode: 'TRAVELER',
+      area: { country: 'Canada', city: 'Vancouver' },
+      travelReason: 'CAREER',
+      localReason: null,
+      goal: 'BUILD_NETWORK',
+      connectionIntent: 'CAREER',
+      updatedAt: new Date(),
+    },
     extendedProfile: {
-      bio: 'Yoga instructor finding balance in life. Love meaningful conversations!',
-      additionalInterests: ['Wellness', 'Volunteering'],
+      bio: 'Moving to Vancouver for a tech job! Looking to meet professionals and explore the city.',
+      additionalInterests: ['Wellness', 'Hiking'],
     },
     companionData: {
       personalityFingerprint: {
         conversationalStyle: 'thoughtful',
-        energyLevel: 4,
+        energyLevel: 6,
         humorStyle: 'minimal',
-        depthPreference: 'deep',
-        values: ['wellness', 'connection', 'growth'],
+        depthPreference: 'moderate',
+        values: ['wellness', 'career', 'growth'],
       },
     },
     connections: { strangers: [], connections: [], friends: [] },
@@ -215,7 +265,7 @@ const TEST_USERS = [
 ];
 
 async function seedUsers() {
-  console.log('Seeding test users...\n');
+  console.log('Seeding test users (Local & Traveler mobility system)...\n');
 
   for (const user of TEST_USERS) {
     const userId = user.oderId;
@@ -227,7 +277,11 @@ async function seedUsers() {
         createdAt: new Date(),
         lastActive: new Date(),
       });
-      console.log(`✓ Created user: ${user.profile.name} (${userId})`);
+      const modeLabel = user.mobility?.mode || 'N/A';
+      const areaLabel = user.mobility?.area?.city
+        ? `${user.mobility.area.city}, ${user.mobility.area.country}`
+        : user.mobility?.area?.country || 'N/A';
+      console.log(`✓ Created ${modeLabel}: ${user.profile.name} → ${areaLabel}`);
     } catch (error) {
       console.error(`✗ Failed to create ${user.profile.name}:`, error.message);
     }
@@ -236,7 +290,12 @@ async function seedUsers() {
   console.log('\n✓ Seeding complete!');
   console.log('\nTest users created:');
   TEST_USERS.forEach(u => {
-    console.log(`  - ${u.profile.name}: ${u.profile.interests.join(', ')}`);
+    const mode = u.mobility?.mode || 'N/A';
+    const area = u.mobility?.area?.city
+      ? `${u.mobility.area.city}, ${u.mobility.area.country}`
+      : u.mobility?.area?.country || 'N/A';
+    console.log(`  - ${u.profile.name} (${mode}) → ${area}`);
+    console.log(`    Interests: ${u.profile.interests.join(', ')}`);
   });
 }
 
