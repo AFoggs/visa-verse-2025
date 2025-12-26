@@ -330,7 +330,7 @@ function Onboarding() {
                     <Globe className="text-primary-400" size={32} />
                   </div>
                   <h1 className="text-2xl font-bold mb-2">Are You a Local or Traveler?</h1>
-                  <p className="text-dark-300">This helps us connect you with the right people</p>
+                  <p className="text-dark-300">We'll match locals with travelers headed to the same destination</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -509,7 +509,7 @@ function Onboarding() {
                     <Heart className="text-primary-400" size={32} />
                   </div>
                   <h1 className="text-2xl font-bold mb-2">What Are You Looking For?</h1>
-                  <p className="text-dark-300">Help us understand your connection goals</p>
+                  <p className="text-dark-300">These help us show you why each match fits your goals</p>
                 </div>
 
                 <div className="space-y-6">
@@ -584,7 +584,7 @@ function Onboarding() {
                   </div>
                   <h1 className="text-2xl font-bold mb-2">What Are You Into?</h1>
                   <p className="text-dark-300">
-                    Select 5-10 interests ({profile.interests.length}/10 selected)
+                    We'll find people who share your interests ({profile.interests.length}/10)
                   </p>
                 </div>
 
@@ -698,7 +698,7 @@ function Onboarding() {
                     <Users className="text-primary-400" size={32} />
                   </div>
                   <h1 className="text-2xl font-bold mb-2">Almost Done!</h1>
-                  <p className="text-dark-300">Tell us your current location and review your profile</p>
+                  <p className="text-dark-300">Just need your current location to finish setting up</p>
                 </div>
 
                 <div className="space-y-6">

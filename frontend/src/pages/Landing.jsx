@@ -1,28 +1,28 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Sparkles, Users, Heart, Shield, ArrowRight } from 'lucide-react';
+import { Sparkles, Users, MapPin, Shield, ArrowRight, Plane, Home, Globe } from 'lucide-react';
 
 function Landing() {
   const features = [
     {
+      icon: Globe,
+      title: 'Destination-Based',
+      description: 'Connect with locals and travelers headed to your destination country or city.',
+    },
+    {
       icon: Sparkles,
       title: 'AI Companion',
-      description: 'Your personal AI friend learns about you through natural conversation.',
+      description: 'Your AI companion learns about you and helps build your mobility profile naturally.',
     },
     {
       icon: Users,
-      title: 'Meaningful Matches',
-      description: 'Connect with people who share your interests and communication style.',
-    },
-    {
-      icon: Heart,
-      title: 'Real Connections',
-      description: 'Move from strangers to friends with AI-powered conversation starters.',
+      title: 'Locals & Travelers',
+      description: 'Whether you live there or are moving there, find people connected to your destination.',
     },
     {
       icon: Shield,
-      title: '100% Private',
-      description: 'Your companion conversations stay private. Only insights power matching.',
+      title: 'Intentional Connections',
+      description: 'Every connection is opt-in and purpose-driven. See why each match was suggested.',
     },
   ];
 
@@ -46,7 +46,7 @@ function Landing() {
             className="flex justify-center mb-8"
           >
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center shadow-2xl shadow-primary-400/30">
-              <span className="text-white font-bold text-4xl">3°</span>
+              <Globe className="text-white" size={40} />
             </div>
           </motion.div>
 
@@ -57,7 +57,7 @@ function Landing() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-5xl md:text-7xl font-bold text-center mb-6"
           >
-            <span className="gradient-text">3Degrees</span>
+            <span className="gradient-text">VisaVerse</span>
           </motion.h1>
 
           {/* Tagline */}
@@ -67,7 +67,7 @@ function Landing() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-xl md:text-2xl text-dark-200 text-center mb-4"
           >
-            Connection through AI companionship
+            Feel less alone while moving across the world
           </motion.p>
 
           {/* Subtitle */}
@@ -77,8 +77,9 @@ function Landing() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="text-dark-300 text-center max-w-2xl mx-auto mb-12"
           >
-            Your AI companion learns about you, understands your personality, and helps you
-            connect with people who truly match your vibe.
+            Connect locals who want to welcome newcomers with travelers relocating, studying,
+            working, or visiting. Destination-based matching helps you find people connected
+            to where you're going.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -92,7 +93,7 @@ function Landing() {
               to="/register"
               className="btn-primary px-8 py-4 text-lg flex items-center justify-center gap-2 group"
             >
-              Get Started
+              Create Your Profile
               <ArrowRight className="group-hover:translate-x-1 transition-transform" size={20} />
             </Link>
             <Link
@@ -122,7 +123,7 @@ function Landing() {
           transition={{ delay: 0.1 }}
           className="text-dark-300 text-center mb-16 max-w-2xl mx-auto"
         >
-          Three degrees of separation: You → Your AI → Their AI → Them
+          Connection infrastructure for a globally mobile world
         </motion.p>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -152,10 +153,10 @@ function Landing() {
 
           <div className="flex flex-col md:flex-row gap-8 items-center justify-center">
             {[
-              { step: 1, title: 'Meet Your Companion', desc: 'Chat with your AI friend' },
-              { step: 2, title: 'Get Matched', desc: 'Find compatible connections' },
-              { step: 3, title: 'Start Talking', desc: 'Break the ice naturally' },
-              { step: 4, title: 'Build Friendships', desc: 'Deepen your connections' },
+              { step: 1, title: 'Choose Your Role', desc: 'Local or Traveler', icon: Users },
+              { step: 2, title: 'Set Your Destination', desc: 'Country + optional city', icon: MapPin },
+              { step: 3, title: 'Find Connections', desc: 'See why each match fits', icon: Sparkles },
+              { step: 4, title: 'Start Connecting', desc: 'Chat with AI icebreakers', icon: Globe },
             ].map((item, index) => (
               <motion.div
                 key={item.step}
@@ -181,6 +182,61 @@ function Landing() {
         </div>
       </div>
 
+      {/* Use Cases Section */}
+      <div className="max-w-7xl mx-auto px-4 py-24">
+        <h2 className="text-3xl font-bold text-center mb-16">Who Is This For?</h2>
+
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          {/* Travelers */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="card p-6"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-accent-400/20 flex items-center justify-center">
+                <Plane className="text-accent-400" size={24} />
+              </div>
+              <h3 className="text-xl font-semibold">Travelers</h3>
+            </div>
+            <ul className="space-y-2 text-dark-300">
+              <li>Relocating to a new country</li>
+              <li>Studying abroad</li>
+              <li>Moving for work or career</li>
+              <li>Visiting for tourism or family</li>
+            </ul>
+            <p className="mt-4 text-sm text-dark-200">
+              Find locals who can help you feel welcome before you even arrive.
+            </p>
+          </motion.div>
+
+          {/* Locals */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="card p-6"
+          >
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-primary-400/20 flex items-center justify-center">
+                <Home className="text-primary-400" size={24} />
+              </div>
+              <h3 className="text-xl font-semibold">Locals</h3>
+            </div>
+            <ul className="space-y-2 text-dark-300">
+              <li>Welcome newcomers to your city</li>
+              <li>Cultural exchange opportunities</li>
+              <li>Professional networking</li>
+              <li>Language practice</li>
+            </ul>
+            <p className="mt-4 text-sm text-dark-200">
+              Share your city and connect with people from around the world.
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
       {/* Footer CTA */}
       <div className="max-w-7xl mx-auto px-4 py-24 text-center">
         <motion.h2
@@ -189,7 +245,7 @@ function Landing() {
           viewport={{ once: true }}
           className="text-3xl font-bold mb-4"
         >
-          Ready to Find Your People?
+          Ready to Connect With Your Destination?
         </motion.h2>
         <motion.p
           initial={{ opacity: 0 }}
@@ -198,10 +254,10 @@ function Landing() {
           transition={{ delay: 0.1 }}
           className="text-dark-300 mb-8"
         >
-          Join thousands making meaningful connections through AI companionship.
+          Whether you're moving somewhere new or welcoming those who are, VisaVerse helps you feel less alone.
         </motion.p>
         <Link to="/register" className="btn-primary px-8 py-4 text-lg inline-flex items-center gap-2">
-          Create Your Account
+          Get Started
           <ArrowRight size={20} />
         </Link>
       </div>
@@ -210,7 +266,7 @@ function Landing() {
       <footer className="border-t border-dark-600 py-8">
         <div className="max-w-7xl mx-auto px-4 text-center text-dark-400 text-sm">
           <p>Built for VisaVerse AI Hackathon 2025</p>
-          <p className="mt-2">3Degrees - Connection through AI companionship</p>
+          <p className="mt-2">VisaVerse - Connection infrastructure for global mobility</p>
         </div>
       </footer>
     </div>

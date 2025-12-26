@@ -288,15 +288,25 @@ async function seedUsers() {
   }
 
   console.log('\n✓ Seeding complete!');
-  console.log('\nTest users created:');
+  console.log('\n' + '='.repeat(60));
+  console.log('DEMO ACCOUNTS FOR TESTING');
+  console.log('='.repeat(60));
+  console.log('\nThese accounts are pre-configured with mobility data.\n');
   TEST_USERS.forEach(u => {
     const mode = u.mobility?.mode || 'N/A';
     const area = u.mobility?.area?.city
       ? `${u.mobility.area.city}, ${u.mobility.area.country}`
       : u.mobility?.area?.country || 'N/A';
-    console.log(`  - ${u.profile.name} (${mode}) → ${area}`);
-    console.log(`    Interests: ${u.profile.interests.join(', ')}`);
+    console.log(`${u.profile.name} (${mode} in ${area})`);
+    console.log(`  Email: ${u.email}`);
+    console.log(`  Goal: ${u.mobility?.goal?.replace(/_/g, ' ').toLowerCase()}`);
+    console.log(`  Interests: ${u.profile.interests.slice(0, 3).join(', ')}...`);
+    console.log('');
   });
+  console.log('='.repeat(60));
+  console.log('NOTE: These are Firebase Auth accounts. To log in, you need to');
+  console.log('create matching Firebase Auth users with these emails.');
+  console.log('='.repeat(60));
 }
 
 async function clearTestUsers() {

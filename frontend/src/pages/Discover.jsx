@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  MapPin,
   Zap,
   ThumbsUp,
   ThumbsDown,
@@ -14,6 +14,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { matchesApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 // Mode label helpers
 const getModeIcon = (mode) => {
@@ -29,6 +30,8 @@ const getModeLabel = (mode) => {
 };
 
 function Discover() {
+  const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const [matches, setMatches] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -36,6 +39,16 @@ function Discover() {
   const [direction, setDirection] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackReason, setFeedbackReason] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [messageType, setMessageType] = useState('success');
+
+  // Check for mobility data - redirect to onboarding if missing
+  useEffect(() => {
+    const mobility = userProfile?.mobility;
+    if (userProfile && (!mobility?.mode || !mobility?.area?.country)) {
+      navigate('/onboarding');
+    }
+  }, [userProfile, navigate]);
 
   const FEEDBACK_REASONS = [
     'Not what I\'m looking for',
@@ -64,14 +77,9 @@ function Discover() {
 
   const currentMatch = matches[currentIndex];
 
-  const [successMessage, setSuccessMessage] = useState('');
-  const [messageType, setMessageType] = useState('success'); // 'success' | 'pending'
-
   const removeCurrentMatch = () => {
-    // Remove the current user from matches array so they don't appear again
     const newMatches = matches.filter((_, idx) => idx !== currentIndex);
     setMatches(newMatches);
-    // Adjust index if we're at the end
     if (currentIndex >= newMatches.length && newMatches.length > 0) {
       setCurrentIndex(newMatches.length - 1);
     }
@@ -85,18 +93,14 @@ function Discover() {
 
     try {
       const result = await matchesApi.connect(currentMatch.userId);
-      console.log('Connect result:', result);
 
       if (result.mutual) {
-        // Both users connected - it's a match!
         setMessageType('success');
         setSuccessMessage(`It's a match! You and ${currentMatch.name} can now chat.`);
       } else if (result.pending) {
-        // Request sent, waiting for other user
         setMessageType('pending');
         setSuccessMessage(result.message || `Request sent to ${currentMatch.name}. They need to connect back!`);
       } else if (result.alreadyConnected) {
-        // Already connected - just remove from list
         setMessageType('success');
         setSuccessMessage(`You're already connected with ${currentMatch.name}!`);
       } else {
@@ -106,7 +110,7 @@ function Discover() {
 
       setTimeout(() => {
         setSuccessMessage('');
-        removeCurrentMatch(); // Remove from list instead of just moving to next
+        removeCurrentMatch();
         setDirection(null);
         setActionLoading(false);
       }, 2000);
@@ -134,7 +138,7 @@ function Discover() {
       setShowFeedback(false);
       setFeedbackReason('');
       setTimeout(() => {
-        removeCurrentMatch(); // Remove from list instead of just moving to next
+        removeCurrentMatch();
         setDirection(null);
         setActionLoading(false);
       }, 300);
@@ -157,6 +161,13 @@ function Discover() {
     }
   };
 
+  // Get user's mobility for context
+  const userMobility = userProfile?.mobility;
+  const isUserLocal = userMobility?.mode === 'LOCAL';
+  const userDestination = userMobility?.area?.city
+    ? `${userMobility.area.city}, ${userMobility.area.country}`
+    : userMobility?.area?.country || 'your destination';
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -169,11 +180,14 @@ function Discover() {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center">
         <div className="w-20 h-20 rounded-full bg-dark-700 flex items-center justify-center mx-auto mb-6">
-          <Sparkles className="text-dark-400" size={40} />
+          <Globe className="text-dark-400" size={40} />
         </div>
         <h2 className="text-2xl font-bold mb-4">No Matches Yet</h2>
-        <p className="text-dark-300 mb-8">
-          We're looking for locals and travelers in your destination. Check back soon or chat with your AI companion to expand your profile!
+        <p className="text-dark-300 mb-4">
+          We're looking for {isUserLocal ? 'travelers coming to' : 'locals and travelers in'} {userDestination}.
+        </p>
+        <p className="text-dark-400 text-sm mb-8">
+          Try broadening your search to country-level, or check back soon as more people join!
         </p>
         <button onClick={loadMatches} className="btn-primary flex items-center gap-2 mx-auto">
           <RefreshCw size={20} />
@@ -191,7 +205,7 @@ function Discover() {
         </div>
         <h2 className="text-2xl font-bold mb-4">That's Everyone!</h2>
         <p className="text-dark-300 mb-8">
-          You've seen all current matches in your destination. Check back later for more connections!
+          You've seen all current matches in {userDestination}. Check back later for more connections!
         </p>
         <button onClick={loadMatches} className="btn-primary flex items-center gap-2 mx-auto">
           <RefreshCw size={20} />
@@ -200,6 +214,16 @@ function Discover() {
       </div>
     );
   }
+
+  // Ensure match reasons always exist with fallback
+  const matchReasons = currentMatch?.matchReasons?.length > 0
+    ? currentMatch.matchReasons
+    : ['Compatible mobility goals'];
+
+  // Get destination display for match
+  const matchDestination = currentMatch?.mobility?.area?.city
+    ? `${currentMatch.mobility.area.city}, ${currentMatch.mobility.area.country}`
+    : currentMatch?.mobility?.area?.country;
 
   return (
     <div className="max-w-md mx-auto px-4 py-8">
@@ -247,44 +271,35 @@ function Discover() {
               {currentMatch?.name}, {currentMatch?.age}
             </h2>
 
-            {/* Mobility Info */}
-            {currentMatch?.mobility && (
-              <div className="flex items-center justify-center gap-2 mb-2">
-                {getModeIcon(currentMatch.mobility.mode)}
-                <span className="text-sm">
-                  {getModeLabel(currentMatch.mobility.mode)} in{' '}
-                  {currentMatch.mobility.area?.city
-                    ? `${currentMatch.mobility.area.city}, ${currentMatch.mobility.area.country}`
-                    : currentMatch.mobility.area?.country}
-                </span>
-              </div>
-            )}
-
-            {/* Current Location (if no mobility) */}
-            {!currentMatch?.mobility && currentMatch?.location && (
-              <p className="text-dark-300 flex items-center justify-center gap-1">
-                <MapPin size={16} />
-                {currentMatch.location.city}, {currentMatch.location.country}
-              </p>
-            )}
+            {/* Mobility Info - Always show destination */}
+            <div className="flex items-center justify-center gap-2 mb-2">
+              {currentMatch?.mobility ? (
+                <>
+                  {getModeIcon(currentMatch.mobility.mode)}
+                  <span className="text-sm">
+                    {getModeLabel(currentMatch.mobility.mode)} in {matchDestination}
+                  </span>
+                </>
+              ) : (
+                <span className="text-sm text-dark-400">Destination not set</span>
+              )}
+            </div>
           </div>
 
-          {/* Match Reasons */}
-          {currentMatch?.matchReasons && currentMatch.matchReasons.length > 0 && (
-            <div className="px-6 py-4 bg-dark-700/50 border-b border-dark-600">
-              <h3 className="text-xs text-dark-400 mb-2 uppercase tracking-wide">Why this match</h3>
-              <div className="flex flex-wrap gap-2">
-                {currentMatch.matchReasons.map((reason, idx) => (
-                  <span
-                    key={idx}
-                    className="px-3 py-1 bg-success-400/20 text-success-400 rounded-full text-sm"
-                  >
-                    {reason}
-                  </span>
-                ))}
-              </div>
+          {/* Match Reasons - Always visible */}
+          <div className="px-6 py-4 bg-dark-700/50 border-b border-dark-600">
+            <h3 className="text-xs text-dark-400 mb-2 uppercase tracking-wide">Why this match</h3>
+            <div className="flex flex-wrap gap-2">
+              {matchReasons.map((reason, idx) => (
+                <span
+                  key={idx}
+                  className="px-3 py-1 bg-success-400/20 text-success-400 rounded-full text-sm"
+                >
+                  {reason}
+                </span>
+              ))}
             </div>
-          )}
+          </div>
 
           {/* Compatibility */}
           <div className="p-6 border-b border-dark-600">

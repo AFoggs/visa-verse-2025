@@ -3,12 +3,12 @@ import {
   Home,
   MessageCircle,
   Users,
-  Compass,
   User,
   Settings,
   LogOut,
   Sparkles,
   Bell,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -22,7 +22,7 @@ function MainLayout() {
   const navItems = [
     { path: '/dashboard', icon: Home, label: 'Home' },
     { path: '/companion', icon: Sparkles, label: 'Companion' },
-    { path: '/discover', icon: Compass, label: 'Discover' },
+    { path: '/discover', icon: Globe, label: 'Connections' },
     { path: '/friends', icon: Users, label: 'Friends', showBadge: true },
     { path: '/profile', icon: User, label: 'Profile' },
   ];
@@ -43,9 +43,9 @@ function MainLayout() {
           {/* Logo */}
           <NavLink to="/dashboard" className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center">
-              <span className="text-white font-bold text-lg">3°</span>
+              <Globe className="text-white" size={22} />
             </div>
-            <span className="text-xl font-semibold gradient-text">3Degrees</span>
+            <span className="text-xl font-semibold gradient-text">VisaVerse</span>
           </NavLink>
 
           {/* Navigation */}

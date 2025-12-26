@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Sparkles,
@@ -8,16 +8,29 @@ import {
   MessageCircle,
   ChevronRight,
   Zap,
+  MapPin,
+  Plane,
+  Home,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { matchesApi, userApi } from '../services/api';
 
 function Dashboard() {
   const { userProfile } = useAuth();
+  const navigate = useNavigate();
   const [connections, setConnections] = useState([]);
   const [friends, setFriends] = useState([]);
   const [suggestedCount, setSuggestedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Check for mobility data - redirect to onboarding if missing
+  useEffect(() => {
+    const mobility = userProfile?.mobility;
+    if (userProfile && (!mobility?.mode || !mobility?.area?.country)) {
+      navigate('/onboarding');
+    }
+  }, [userProfile, navigate]);
 
   useEffect(() => {
     async function fetchData() {
@@ -48,6 +61,13 @@ function Dashboard() {
     return 'Good evening';
   };
 
+  // Get mobility info for display
+  const mobility = userProfile?.mobility;
+  const isLocal = mobility?.mode === 'LOCAL';
+  const destinationDisplay = mobility?.area?.city
+    ? `${mobility.area.city}, ${mobility.area.country}`
+    : mobility?.area?.country || 'your destination';
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Header */}
@@ -59,7 +79,22 @@ function Dashboard() {
         <h1 className="text-3xl font-bold mb-2">
           {greeting()}, {userProfile?.profile?.name || 'there'}!
         </h1>
-        <p className="text-dark-300">Ready to make meaningful connections today?</p>
+        <p className="text-dark-300">Find locals and travelers connected to your destination</p>
+
+        {/* Destination Badge */}
+        {mobility && (
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-dark-700 rounded-xl">
+            {isLocal ? (
+              <Home size={18} className="text-primary-400" />
+            ) : (
+              <Plane size={18} className="text-accent-400" />
+            )}
+            <span className="text-sm">
+              <span className="text-dark-400">{isLocal ? 'Local in' : 'Traveling to'}</span>{' '}
+              <span className="font-medium">{destinationDisplay}</span>
+            </span>
+          </div>
+        )}
       </motion.div>
 
       {/* Quick Actions */}
@@ -78,8 +113,8 @@ function Dashboard() {
               <Sparkles className="text-white" size={28} />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold mb-1">Your AI Companion</h3>
-              <p className="text-dark-300 text-sm">Chat, share, and let me learn about you</p>
+              <h3 className="font-semibold mb-1">AI Companion</h3>
+              <p className="text-dark-300 text-sm">Chat to build your profile and get matched</p>
             </div>
             <ChevronRight className="text-dark-400" size={24} />
           </Link>
@@ -96,7 +131,7 @@ function Dashboard() {
             className="card-hover flex items-center gap-4 h-full"
           >
             <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-success-400 to-primary-400 flex items-center justify-center flex-shrink-0 relative">
-              <Compass className="text-white" size={28} />
+              <Globe className="text-white" size={28} />
               {suggestedCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center">
                   {suggestedCount}
@@ -107,8 +142,8 @@ function Dashboard() {
               <h3 className="font-semibold mb-1">Find Connections</h3>
               <p className="text-dark-300 text-sm">
                 {suggestedCount > 0
-                  ? `${suggestedCount} potential matches waiting`
-                  : 'Discover people who share your vibe'}
+                  ? `${suggestedCount} ${isLocal ? 'travelers' : 'locals & travelers'} for ${destinationDisplay}`
+                  : `Discover people in ${destinationDisplay}`}
               </p>
             </div>
             <ChevronRight className="text-dark-400" size={24} />
@@ -193,10 +228,13 @@ function Dashboard() {
         ) : (
           <div className="card text-center py-8">
             <Users className="mx-auto text-dark-400 mb-3" size={48} />
-            <p className="text-dark-300 mb-4">No active connections yet</p>
+            <p className="text-dark-300 mb-2">No active connections yet</p>
+            <p className="text-dark-400 text-sm mb-4">
+              Find {isLocal ? 'travelers coming to' : 'locals and travelers in'} {destinationDisplay}
+            </p>
             <Link to="/discover" className="btn-primary inline-flex items-center gap-2">
-              <Compass size={20} />
-              Find Connections
+              <Globe size={20} />
+              Discover Connections
             </Link>
           </div>
         )}
@@ -237,7 +275,7 @@ function Dashboard() {
                 </div>
                 <h4 className="font-medium truncate">{friend.otherUser?.name || 'Unknown'}</h4>
                 <p className="text-dark-400 text-xs">
-                  {friend.otherUser?.location?.city || 'Unknown location'}
+                  {friend.otherUser?.mobility?.area?.city || friend.otherUser?.location?.city || 'Connection'}
                 </p>
               </Link>
             ))}
