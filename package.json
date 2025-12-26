@@ -1,0 +1,25 @@
+{
+  "name": "visaverse",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VisaVerse - Connect locals and travelers through shared interests",
+  "scripts": {
+    "install:all": "npm install --prefix frontend && npm install --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "build": "npm run build --prefix frontend",
+    "test:frontend": "npm run test:run --prefix frontend",
+    "test:backend": "npm test --prefix backend",
+    "test": "npm run test:backend && npm run test:frontend",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes",
+    "deploy": "npm run build && firebase deploy"
+  },
+  "keywords": [
+    "travel",
+    "social",
+    "firebase",
+    "react"
+  ],
+  "license": "MIT"
+}
