@@ -81,18 +81,52 @@ Guidelines:
 - Their conversations with you are private
 - NEVER give legal, visa, or immigration advice - you're here for social connection, not documentation
 
-When you notice they've mentioned a genuine interest (hobby, activity, passion) not in their profile:
+=== MATCHING SIGNAL DETECTION ===
+
+As you converse, detect signals that help match users with compatible connections. Tag detected signals using these formats (only when clearly expressed, not assumed):
+
+INTERESTS (hobbies, activities, passions not in their profile):
 [INTEREST_DETECTED: interest_name]
 
-When you detect mobility context (where they're going, why they're traveling/living somewhere), tag it:
+MOBILITY (travel/relocation context):
 [MOBILITY_DETECTED: {"mode": "LOCAL"|"TRAVELER", "country": "country_name", "city": "city_name", "reason": "brief_reason"}]
 
-Only tag clear genuine interests and mobility info, not passing mentions.`;
+LANGUAGES (languages spoken with proficiency):
+[LANGUAGE_DETECTED: {"language": "language_name", "proficiency": "native"|"fluent"|"conversational"|"learning"}]
+
+ACTIVITY PREFERENCES (how they like to spend time):
+[ACTIVITY_DETECTED: {"type": "indoor"|"outdoor"|"mixed", "groupSize": "solo"|"small_group"|"large_group"|"flexible"}]
+
+SCHEDULE PATTERNS (when they're typically available):
+[SCHEDULE_DETECTED: {"type": "early_bird"|"night_owl"|"flexible", "availability": "weekdays"|"weekends"|"flexible"}]
+
+SOCIAL STYLE (how they recharge and socialize):
+[SOCIAL_STYLE_DETECTED: {"type": "introvert"|"ambivert"|"extrovert", "notes": "brief context"}]
+
+LIFE STAGE (current life situation):
+[LIFE_STAGE_DETECTED: {"stage": "student"|"early_career"|"mid_career"|"parent"|"retiree"|"other", "details": "brief context"}]
+
+CULTURAL INTERESTS (interest in local culture/customs):
+[CULTURAL_DETECTED: {"curiosity": "high"|"medium"|"low", "interests": ["food", "traditions", "language", "history", etc.]}]
+
+EXPERTISE (skills or knowledge they can share):
+[EXPERTISE_DETECTED: {"area": "domain_name", "canHelp": "what they can help with"}]
+
+DEAL BREAKERS (strong preferences or non-negotiables):
+[DEALBREAKER_DETECTED: {"type": "preference_type", "value": "the preference"}]
+
+Rules for detection:
+- Only tag signals that are clearly stated, not inferred
+- One tag per signal type per message (combine if multiple of same type)
+- Don't interrupt conversation flow - be natural first, detect second
+- Interests must be genuine passions, not casual mentions
+- Be conservative - only tag what's clearly expressed`;
 
 export async function generateCompanionResponse(userId, message, conversationHistory, userProfile) {
   try {
     const userName = userProfile?.profile?.name || 'there';
     const interests = userProfile?.profile?.interests || [];
+    const existingSignals = userProfile?.companionData?.detectedSignals || {};
 
     // Add dynamic variety instructions
     const randomStyle = getRandomElements(RESPONSE_STYLES, 2).join(' OR ');
@@ -102,6 +136,7 @@ export async function generateCompanionResponse(userId, message, conversationHis
 User name: ${userName}
 Current interests: ${interests.join(', ') || 'None set yet'}
 Conversation count: ${conversationHistory.length}
+Already detected: ${JSON.stringify(existingSignals) || 'Nothing yet'}
 
 For THIS response, try being: ${randomMood}
 Consider this approach: ${randomStyle}
@@ -120,46 +155,148 @@ Consider this approach: ${randomStyle}
 
     const response = await getClient().messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 500,
-      temperature: 0.85, // Slightly higher temperature for more variety
+      max_tokens: 600,
+      temperature: 0.85,
       system: COMPANION_SYSTEM_PROMPT + contextPrompt,
       messages,
     });
 
     const content = response.content[0]?.text || '';
 
-    // Check for detected interest
-    const interestMatch = content.match(/\[INTEREST_DETECTED:\s*([^\]]+)\]/);
-    let detectedInterest = null;
+    // Parse all detected signals
+    const detectedSignals = parseDetectedSignals(content);
+
+    // Clean the content by removing all signal tags
     let cleanContent = content;
+    const signalPatterns = [
+      /\[INTEREST_DETECTED:\s*[^\]]+\]/g,
+      /\[MOBILITY_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[LANGUAGE_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[ACTIVITY_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[SCHEDULE_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[SOCIAL_STYLE_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[LIFE_STAGE_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[CULTURAL_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[EXPERTISE_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[DEALBREAKER_DETECTED:\s*\{[^}]+\}\]/g,
+    ];
 
-    if (interestMatch) {
-      detectedInterest = interestMatch[1].trim();
-      cleanContent = cleanContent.replace(/\[INTEREST_DETECTED:\s*[^\]]+\]/, '').trim();
-    }
-
-    // Check for detected mobility
-    const mobilityMatch = content.match(/\[MOBILITY_DETECTED:\s*(\{[^}]+\})\]/);
-    let detectedMobility = null;
-
-    if (mobilityMatch) {
-      try {
-        detectedMobility = JSON.parse(mobilityMatch[1]);
-      } catch {
-        console.log('Failed to parse mobility detection:', mobilityMatch[1]);
-      }
-      cleanContent = cleanContent.replace(/\[MOBILITY_DETECTED:\s*\{[^}]+\}\]/, '').trim();
+    for (const pattern of signalPatterns) {
+      cleanContent = cleanContent.replace(pattern, '').trim();
     }
 
     return {
       message: cleanContent,
-      detectedInterest,
-      detectedMobility,
+      detectedInterest: detectedSignals.interest,
+      detectedMobility: detectedSignals.mobility,
+      detectedSignals, // All detected signals for storage
     };
   } catch (error) {
     console.error('Claude API error:', error);
     throw new Error('Failed to generate response');
   }
+}
+
+function parseDetectedSignals(content) {
+  const signals = {};
+
+  // Interest detection
+  const interestMatch = content.match(/\[INTEREST_DETECTED:\s*([^\]]+)\]/);
+  if (interestMatch) {
+    signals.interest = interestMatch[1].trim();
+  }
+
+  // Mobility detection
+  const mobilityMatch = content.match(/\[MOBILITY_DETECTED:\s*(\{[^}]+\})\]/);
+  if (mobilityMatch) {
+    try {
+      signals.mobility = JSON.parse(mobilityMatch[1]);
+    } catch {
+      console.log('Failed to parse mobility detection');
+    }
+  }
+
+  // Language detection
+  const languageMatch = content.match(/\[LANGUAGE_DETECTED:\s*(\{[^}]+\})\]/);
+  if (languageMatch) {
+    try {
+      signals.language = JSON.parse(languageMatch[1]);
+    } catch {
+      console.log('Failed to parse language detection');
+    }
+  }
+
+  // Activity detection
+  const activityMatch = content.match(/\[ACTIVITY_DETECTED:\s*(\{[^}]+\})\]/);
+  if (activityMatch) {
+    try {
+      signals.activity = JSON.parse(activityMatch[1]);
+    } catch {
+      console.log('Failed to parse activity detection');
+    }
+  }
+
+  // Schedule detection
+  const scheduleMatch = content.match(/\[SCHEDULE_DETECTED:\s*(\{[^}]+\})\]/);
+  if (scheduleMatch) {
+    try {
+      signals.schedule = JSON.parse(scheduleMatch[1]);
+    } catch {
+      console.log('Failed to parse schedule detection');
+    }
+  }
+
+  // Social style detection
+  const socialMatch = content.match(/\[SOCIAL_STYLE_DETECTED:\s*(\{[^}]+\})\]/);
+  if (socialMatch) {
+    try {
+      signals.socialStyle = JSON.parse(socialMatch[1]);
+    } catch {
+      console.log('Failed to parse social style detection');
+    }
+  }
+
+  // Life stage detection
+  const lifeStageMatch = content.match(/\[LIFE_STAGE_DETECTED:\s*(\{[^}]+\})\]/);
+  if (lifeStageMatch) {
+    try {
+      signals.lifeStage = JSON.parse(lifeStageMatch[1]);
+    } catch {
+      console.log('Failed to parse life stage detection');
+    }
+  }
+
+  // Cultural interests detection
+  const culturalMatch = content.match(/\[CULTURAL_DETECTED:\s*(\{[^}]+\})\]/);
+  if (culturalMatch) {
+    try {
+      signals.cultural = JSON.parse(culturalMatch[1]);
+    } catch {
+      console.log('Failed to parse cultural detection');
+    }
+  }
+
+  // Expertise detection
+  const expertiseMatch = content.match(/\[EXPERTISE_DETECTED:\s*(\{[^}]+\})\]/);
+  if (expertiseMatch) {
+    try {
+      signals.expertise = JSON.parse(expertiseMatch[1]);
+    } catch {
+      console.log('Failed to parse expertise detection');
+    }
+  }
+
+  // Deal breaker detection
+  const dealBreakerMatch = content.match(/\[DEALBREAKER_DETECTED:\s*(\{[^}]+\})\]/);
+  if (dealBreakerMatch) {
+    try {
+      signals.dealBreaker = JSON.parse(dealBreakerMatch[1]);
+    } catch {
+      console.log('Failed to parse deal breaker detection');
+    }
+  }
+
+  return signals;
 }
 
 // Generate icebreakers specific to one user's perspective
@@ -182,6 +319,10 @@ export async function generateIcebreakersForUser(requestingUser, otherUser, shar
       }
     }
 
+    // Get conversation-derived insights
+    const reqSignals = requestingUser.companionData?.detectedSignals || {};
+    const otherSignals = otherUser.companionData?.detectedSignals || {};
+
     const prompt = `Generate 3 personalized icebreaker questions for ${requestingUser.profile?.name || 'someone'} to ask ${otherUser.profile?.name || 'their new connection'} on 3Degrees, a platform connecting locals and travelers.
 
 ${mobilityContext ? `Context: ${mobilityContext}` : ''}
@@ -190,11 +331,16 @@ About ${requestingUser.profile?.name || 'the person asking'}:
 - Interests: ${requestingUser.profile?.interests?.join(', ') || 'Various'}
 - Looking for: ${requestingUser.profile?.whyHere || 'connections'}
 ${reqMode ? `- Role: ${reqMode}` : ''}
+${reqSignals.languages ? `- Languages: ${JSON.stringify(reqSignals.languages)}` : ''}
+${reqSignals.expertise ? `- Expertise: ${JSON.stringify(reqSignals.expertise)}` : ''}
 
 About ${otherUser.profile?.name || 'the other person'}:
 - Interests: ${otherUser.profile?.interests?.join(', ') || 'Various'}
 - Looking for: ${otherUser.profile?.whyHere || 'connections'}
 ${otherMode ? `- Role: ${otherMode}` : ''}
+${otherSignals.languages ? `- Languages: ${JSON.stringify(otherSignals.languages)}` : ''}
+${otherSignals.expertise ? `- Expertise: ${JSON.stringify(otherSignals.expertise)}` : ''}
+${otherSignals.cultural ? `- Cultural interests: ${JSON.stringify(otherSignals.cultural)}` : ''}
 
 Shared interests: ${sharedInterests?.join(', ') || 'None specifically'}
 
@@ -205,13 +351,14 @@ Generate 3 unique icebreaker questions that:
 4. Feel personal and specific, not generic
 5. Are warm, open-ended, and invite genuine conversation
 6. Help build a cross-cultural or welcoming connection
+7. Leverage any detected expertise or language skills if relevant
 
 Return ONLY a JSON array of 3 strings, nothing else:`;
 
     const response = await getClient().messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 400,
-      temperature: 0.9, // Higher temperature for more unique results
+      temperature: 0.9,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -223,14 +370,12 @@ Return ONLY a JSON array of 3 strings, nothing else:`;
         return icebreakers.slice(0, 3);
       }
     } catch {
-      // If parsing fails, extract questions manually
       const questions = content.match(/"([^"]+\?)"/g);
       if (questions) {
         return questions.slice(0, 3).map(q => q.replace(/"/g, ''));
       }
     }
 
-    // Fallback icebreakers personalized to other user
     const otherName = otherUser.profile?.name || 'you';
     const otherInterest = otherUser.profile?.interests?.[0] || 'hobbies';
     return [
@@ -294,23 +439,50 @@ export async function analyzePersonality(conversations) {
       return null; // Not enough data
     }
 
-    const prompt = `Analyze the following conversation snippets and extract a personality fingerprint.
+    const prompt = `Analyze the following conversation snippets and extract a comprehensive personality and preference profile for matching purposes.
 
 Conversations:
-${conversationText.slice(0, 2000)}
+${conversationText.slice(0, 3000)}
 
 Return a JSON object with these fields:
+
+// Core personality
 - conversationalStyle: "casual" | "thoughtful" | "energetic" | "reserved"
 - energyLevel: 1-10 (1=calm/reserved, 10=very energetic)
 - humorStyle: "dry" | "playful" | "witty" | "minimal" | "unknown"
 - depthPreference: "surface" | "moderate" | "deep"
-- values: array of 2-3 key values detected (e.g., "creativity", "connection", "growth")
+- values: array of 2-4 key values detected (e.g., "creativity", "connection", "growth", "adventure")
 
-Return ONLY the JSON object, no other text.`;
+// Social preferences
+- socialStyle: "introvert" | "ambivert" | "extrovert" | "unknown"
+- groupPreference: "solo" | "small_group" | "large_group" | "flexible" | "unknown"
+
+// Activity preferences
+- activityType: "indoor" | "outdoor" | "mixed" | "unknown"
+- scheduleType: "early_bird" | "night_owl" | "flexible" | "unknown"
+
+// Cultural and growth
+- culturalCuriosity: "low" | "medium" | "high" | "unknown"
+- lifeStage: "student" | "early_career" | "mid_career" | "parent" | "retiree" | "unknown"
+
+// Languages detected (array, can be empty)
+- languages: [{"language": "name", "proficiency": "native"|"fluent"|"conversational"|"learning"}]
+
+// Expertise areas detected (array, can be empty)
+- expertiseAreas: ["area1", "area2"]
+
+// Deal breakers or strong preferences detected (array, can be empty)
+- dealBreakers: [{"type": "category", "value": "preference"}]
+
+// Communication style
+- responseLength: "brief" | "moderate" | "detailed" | "unknown"
+- emojiUse: "none" | "minimal" | "moderate" | "frequent" | "unknown"
+
+Return ONLY the JSON object, no other text. Use "unknown" for fields that cannot be determined from the conversation.`;
 
     const response = await getClient().messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 300,
+      max_tokens: 800,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -322,10 +494,63 @@ Return ONLY the JSON object, no other text.`;
   }
 }
 
+// Aggregate detected signals into the personality fingerprint
+export function aggregateSignals(existingFingerprint, newSignals) {
+  const fingerprint = { ...existingFingerprint };
+
+  if (newSignals.language) {
+    fingerprint.languages = fingerprint.languages || [];
+    const existing = fingerprint.languages.find(l =>
+      l.language.toLowerCase() === newSignals.language.language.toLowerCase()
+    );
+    if (!existing) {
+      fingerprint.languages.push(newSignals.language);
+    }
+  }
+
+  if (newSignals.activity) {
+    fingerprint.activityType = newSignals.activity.type;
+    fingerprint.groupPreference = newSignals.activity.groupSize;
+  }
+
+  if (newSignals.schedule) {
+    fingerprint.scheduleType = newSignals.schedule.type;
+    fingerprint.availability = newSignals.schedule.availability;
+  }
+
+  if (newSignals.socialStyle) {
+    fingerprint.socialStyle = newSignals.socialStyle.type;
+  }
+
+  if (newSignals.lifeStage) {
+    fingerprint.lifeStage = newSignals.lifeStage.stage;
+  }
+
+  if (newSignals.cultural) {
+    fingerprint.culturalCuriosity = newSignals.cultural.curiosity;
+    fingerprint.culturalInterests = newSignals.cultural.interests;
+  }
+
+  if (newSignals.expertise) {
+    fingerprint.expertiseAreas = fingerprint.expertiseAreas || [];
+    if (!fingerprint.expertiseAreas.includes(newSignals.expertise.area)) {
+      fingerprint.expertiseAreas.push(newSignals.expertise.area);
+    }
+  }
+
+  if (newSignals.dealBreaker) {
+    fingerprint.dealBreakers = fingerprint.dealBreakers || [];
+    fingerprint.dealBreakers.push(newSignals.dealBreaker);
+  }
+
+  return fingerprint;
+}
+
 export default {
   generateCompanionResponse,
   generateIcebreakers,
   generateIcebreakersForUser,
   generateTopicPrompt,
   analyzePersonality,
+  aggregateSignals,
 };

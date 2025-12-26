@@ -27,10 +27,18 @@ All connections are **opt-in, intentional, and explainable**.
 - Local ↔ Traveler pairing prioritized for complementary connections
 - Explainable match reasons ("Same destination", "Aligned goals", etc.)
 
-### AI Companion
+### AI Companion with Signal Detection
 - Personal AI that learns about you through natural conversation
-- Automatically detects mobility context from chat (destination, mode, goals)
-- Builds personality fingerprint for better matching
+- **Real-time signal detection** extracts matching-relevant information from conversations:
+  - Languages spoken and proficiency levels
+  - Activity preferences (indoor/outdoor, group size)
+  - Schedule patterns (early bird/night owl)
+  - Social style (introvert/ambivert/extrovert)
+  - Life stage (student, career, parent, etc.)
+  - Cultural interests and curiosity level
+  - Expertise areas that could help others
+  - Deal breakers and strong preferences
+- Builds comprehensive personality fingerprint for better matching
 - 100% private conversations - only aggregated insights used for matching
 
 ### Mobility Context
@@ -63,7 +71,7 @@ Each user provides structured mobility data:
 
 ## The Matching Algorithm
 
-The matching algorithm uses a multi-factor scoring system that prioritizes **destination alignment** and **complementary roles** (Local ↔ Traveler pairing).
+The matching algorithm uses a **12-factor scoring system** that combines structured profile data with AI-extracted conversation signals. It prioritizes **destination alignment** and **complementary roles** (Local ↔ Traveler pairing).
 
 ### Hard Filters (Must Pass)
 
@@ -72,12 +80,50 @@ Before any scoring, matches must pass these requirements:
 1. **Same destination country** - Both users must be in/going to the same country
 2. **Age preference compatibility** - Both users' age preferences must be mutually satisfied
 3. **Communication preference compatibility** - Users with conflicting preferences (text-only vs voice-only) are filtered out
+4. **Deal breaker compatibility** - No conflicting deal breakers detected from conversations
 
-### Scoring System
+### AI Signal Detection
 
-Matches that pass hard filters receive a weighted compatibility score:
+During conversations with the AI companion, the following signals are automatically detected and stored:
 
-#### Mobility Scoring (20% weight, up to 57 base points)
+| Signal Type | What's Detected | Example |
+|-------------|-----------------|---------|
+| **Languages** | Language + proficiency | "I speak Spanish fluently" → `{language: "Spanish", proficiency: "fluent"}` |
+| **Activity** | Indoor/outdoor + group size | "I love hiking with small groups" → `{type: "outdoor", groupSize: "small_group"}` |
+| **Schedule** | Time preference + availability | "I'm a morning person" → `{type: "early_bird", availability: "flexible"}` |
+| **Social Style** | Introvert/ambivert/extrovert | "I need alone time to recharge" → `{type: "introvert"}` |
+| **Life Stage** | Current situation | "Just started my first job" → `{stage: "early_career"}` |
+| **Cultural** | Curiosity level + interests | "I want to learn local traditions" → `{curiosity: "high", interests: ["traditions"]}` |
+| **Expertise** | Skills to share | "I work in tech, happy to help" → `{area: "technology", canHelp: "job hunting"}` |
+| **Deal Breakers** | Strong preferences | "I really can't be around smokers" → `{type: "smoking", value: "non-smoker"}` |
+
+### Scoring Dimensions
+
+The algorithm calculates 12 separate scores, each contributing to the final weighted score:
+
+#### Core Matching (48% of total)
+
+| Dimension | Weight | Description |
+|-----------|--------|-------------|
+| **Mobility** | 15% | Destination match, Local↔Traveler pairing, intent alignment |
+| **Interests** | 18% | Jaccard similarity of profile interests + shared interest bonus |
+| **Language** | 10% | Shared languages weighted by proficiency; language exchange bonus |
+| **Values** | 10% | Shared values detected from personality analysis |
+
+#### Conversation-Derived (44% of total)
+
+| Dimension | Weight | Description |
+|-----------|--------|-------------|
+| **Activity** | 8% | Indoor/outdoor alignment + group size preference |
+| **Style** | 8% | Conversational style, energy level, humor compatibility |
+| **Schedule** | 6% | Early bird/night owl + weekday/weekend availability |
+| **Social** | 6% | Introvert/extrovert compatibility + depth preference |
+| **Life Stage** | 5% | Same or adjacent life stages (student, career, parent) |
+| **Cultural Bridge** | 5% | High-curiosity traveler + cultural-exchange local pairing |
+| **Expertise** | 4% | One user has skills the other needs |
+| **Goal** | 5% | Keyword matching in "why here" responses |
+
+### Mobility Scoring Details
 
 | Factor | Points | Description |
 |--------|--------|-------------|
@@ -89,26 +135,27 @@ Matches that pass hard filters receive a weighted compatibility score:
 | Same goal | +6 | Both have matching primary goals |
 | Same travel reason | +5 | For Traveler-Traveler matches with same purpose |
 
-#### Local-Traveler Alignment Bonuses
+### Language Exchange Bonus
 
-When a Local matches with a Traveler, additional points are awarded based on compatible reasons:
+Special scoring for language learning opportunities:
 
-| Local Reason | Traveler Reason | Bonus |
-|--------------|-----------------|-------|
-| Welcome Others | Any | +6 |
-| Professional Network | Career | +8 |
-| Community Building | Relocating or School | +6 |
-| Cultural Exchange | Not Tourism | +5 |
-| Language Practice | Any | +4 |
+| Scenario | Score Bonus |
+|----------|-------------|
+| Native + Learning same language | +85 (language exchange opportunity) |
+| Both fluent in same language | +80 (easy communication) |
+| Both conversational | +60 (can communicate) |
+| Shared language at any level | +40 base (common ground) |
 
-#### Traditional Compatibility Scores
+### Cultural Bridge Scoring
 
-| Factor | Weight | Description |
-|--------|--------|-------------|
-| Interest Score | 25% | Jaccard similarity of interests + shared interest bonus |
-| Style Score | 20% | Conversational style and energy level compatibility |
-| Value Score | 20% | Shared values from personality fingerprint |
-| Goal Score | 15% | Keyword matching in "why here" responses |
+For Local ↔ Traveler matches:
+
+| Factor | Bonus |
+|--------|-------|
+| Traveler has high cultural curiosity | +25 |
+| Traveler has medium cultural curiosity | +10 |
+| Local interested in cultural exchange | +15 |
+| Matching cultural interests (food, traditions, etc.) | +5 per shared interest |
 
 ### Match Prioritization
 
@@ -124,6 +171,8 @@ Every match includes up to 3 human-readable reasons:
 - "Community connection" (matching intent)
 - "Both looking to make friends" (matching goal)
 - "3 shared interests"
+- "Both speak Spanish" (shared language)
+- "Can help with technology" (expertise bridge)
 
 ## Project Structure
 
@@ -228,15 +277,15 @@ npm run test:frontend
 - `GET /api/users/connections` - Get connections list
 
 ### Companion
-- `POST /api/companion/chat` - Chat with AI companion
+- `POST /api/companion/chat` - Chat with AI companion (returns detected signals)
 - `GET /api/companion/history` - Get conversation history
-- `GET /api/companion/insights` - Get personality insights
+- `GET /api/companion/insights` - Get personality insights and detected signals
 - `POST /api/companion/confirm-interest` - Confirm detected interest
 - `POST /api/companion/confirm-mobility` - Confirm detected mobility context
 
 ### Matches
 - `GET /api/matches` - Get all matches
-- `GET /api/matches/suggested` - Get suggested matches (with match reasons)
+- `GET /api/matches/suggested` - Get suggested matches (with match reasons and score breakdown)
 - `POST /api/matches/connect` - Connect with user
 - `POST /api/matches/accept/:matchId` - Accept connection request
 - `POST /api/matches/:matchId/friend-request` - Request friendship
@@ -244,7 +293,7 @@ npm run test:frontend
 ### Chat
 - `GET /api/chat/:matchId` - Get conversation
 - `POST /api/chat/:matchId/message` - Send message
-- `GET /api/chat/:matchId/icebreakers` - Get AI icebreakers
+- `GET /api/chat/:matchId/icebreakers` - Get AI icebreakers (uses detected signals)
 
 ## Deployment
 
