@@ -276,7 +276,10 @@ router.get('/:userId', async (req, res) => {
         whyHere: userData.profile?.whyHere,
         interests: userData.profile?.interests,
         preferences: userData.profile?.preferences,
+        // Only include photoUrl for friends (friends-only visibility)
+        photoUrl: areFriends ? userData.profile?.photoUrl : null,
       },
+      mobility: userData.mobility,
       status: areFriends ? 'friends' : 'connection',
     };
 

@@ -141,6 +141,7 @@ function Onboarding() {
   }, [profile.dateOfBirth]);
 
   const isAdult = calculatedAge !== null && calculatedAge >= 18;
+  const isValidAge = calculatedAge !== null && calculatedAge >= 18 && calculatedAge <= 100;
 
   // Max date for DOB (must be at least 18 years old)
   const maxDOB = useMemo(() => {
@@ -149,10 +150,10 @@ function Onboarding() {
     return date.toISOString().split('T')[0];
   }, []);
 
-  // Min date for DOB (reasonable limit of 120 years)
+  // Min date for DOB (reasonable limit of 100 years)
   const minDOB = useMemo(() => {
     const date = new Date();
-    date.setFullYear(date.getFullYear() - 120);
+    date.setFullYear(date.getFullYear() - 100);
     return date.toISOString().split('T')[0];
   }, []);
 
@@ -160,6 +161,19 @@ function Onboarding() {
 
   const handleNext = () => {
     if (step < totalSteps) {
+      // For locals moving from step 5 to 6, auto-fill location from mobility.area
+      // since their destination IS their current location
+      if (step === 5 && mobility.mode === 'LOCAL') {
+        setProfile((prev) => ({
+          ...prev,
+          location: {
+            city: mobility.area.city || '',
+            state: '',
+            country: mobility.area.country || '',
+            displayPreference: 'city',
+          },
+        }));
+      }
       setStep(step + 1);
     }
   };
@@ -216,7 +230,7 @@ function Onboarding() {
   const isStepValid = () => {
     switch (step) {
       case 1:
-        return profile.name.trim().length >= 2 && isAdult;
+        return profile.name.trim().length >= 2 && isValidAge;
       case 2:
         return mobility.mode !== '';
       case 3:
@@ -293,10 +307,15 @@ function Onboarding() {
                     />
                     {profile.dateOfBirth && (
                       <div className="mt-2">
-                        {isAdult ? (
+                        {isValidAge ? (
                           <p className="text-success-400 text-sm flex items-center gap-2">
                             <Check size={16} />
                             You are {calculatedAge} years old
+                          </p>
+                        ) : calculatedAge !== null && calculatedAge > 100 ? (
+                          <p className="text-red-400 text-sm flex items-center gap-2">
+                            <Info size={16} />
+                            Please enter a valid date of birth
                           </p>
                         ) : (
                           <p className="text-red-400 text-sm flex items-center gap-2">
@@ -661,14 +680,21 @@ function Onboarding() {
                       <MapPin className="inline mr-2" size={16} />
                       Your Current Location
                     </label>
+                    {mobility.mode === 'LOCAL' && profile.location.country && (
+                      <p className="text-xs text-success-400 mb-2">
+                        Auto-filled from your destination since you're a local. You can change it if needed.
+                      </p>
+                    )}
                     <LocationSearch
                       value={profile.location}
                       onChange={(location) => setProfile({ ...profile, location })}
                       placeholder="Search for your current city..."
                     />
-                    <p className="text-xs text-dark-400 mt-2">
-                      This is where you are now, not your destination.
-                    </p>
+                    {mobility.mode !== 'LOCAL' && (
+                      <p className="text-xs text-dark-400 mt-2">
+                        This is where you are now, not your destination.
+                      </p>
+                    )}
                   </div>
 
                   {/* Summary */}
