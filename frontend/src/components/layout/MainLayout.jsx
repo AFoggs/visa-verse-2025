@@ -21,7 +21,7 @@ function MainLayout() {
   const navItems = [
     { path: '/dashboard', icon: Home, label: 'Home' },
     { path: '/companion', icon: Sparkles, label: 'Companion' },
-    { path: '/discover', icon: Globe, label: 'Connections' },
+    { path: '/discover', icon: Globe, label: 'Discover' },
     { path: '/friends', icon: Users, label: 'Friends', showBadge: true },
     { path: '/profile', icon: User, label: 'Profile' },
   ];

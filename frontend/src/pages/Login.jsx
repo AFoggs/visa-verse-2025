@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 function Login() {
@@ -46,9 +46,9 @@ function Login() {
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-3 mb-8">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center">
-            <span className="text-white font-bold text-xl">3°</span>
+            <Globe className="text-white" size={26} />
           </div>
-          <span className="text-2xl font-semibold gradient-text">3Degrees</span>
+          <span className="text-2xl font-semibold gradient-text">VisaVerse</span>
         </Link>
 
         {/* Card */}

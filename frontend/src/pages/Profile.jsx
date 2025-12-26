@@ -17,6 +17,10 @@ import {
   Heart,
   Check,
   Info,
+  Plane,
+  Home,
+  Target,
+  Compass,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { userApi } from '../services/api';
@@ -59,6 +63,39 @@ const REASONS = [
   { id: 'loneliness', label: 'Combat loneliness', icon: '💙' },
   { id: 'activities', label: 'Find activity partners', icon: '🎮' },
   { id: 'curious', label: 'Just curious to try it', icon: '✨' },
+];
+
+// Mobility constants
+const GOALS = [
+  { id: 'MAKE_FRIENDS', label: 'Make friends', icon: '👋' },
+  { id: 'FEEL_WELCOME', label: 'Feel welcome', icon: '🏠' },
+  { id: 'HELP_OTHERS', label: 'Help others', icon: '🤝' },
+  { id: 'BUILD_NETWORK', label: 'Build network', icon: '🔗' },
+  { id: 'EXPLORE_CITY', label: 'Explore the city', icon: '🗺️' },
+];
+
+const CONNECTION_INTENTS = [
+  { id: 'COMMUNITY', label: 'Community', icon: '👥', desc: 'Social & belonging' },
+  { id: 'CAREER', label: 'Career', icon: '💼', desc: 'Professional networking' },
+  { id: 'EXPERIENCE', label: 'Experience', icon: '✨', desc: 'Tourism & activities' },
+];
+
+const TRAVEL_REASONS = [
+  { id: 'RELOCATING', label: 'Relocating' },
+  { id: 'SCHOOL', label: 'Studying abroad' },
+  { id: 'CAREER', label: 'Work/Career' },
+  { id: 'TOURISM', label: 'Tourism' },
+  { id: 'FAMILY', label: 'Family reasons' },
+  { id: 'OTHER', label: 'Other' },
+];
+
+const LOCAL_REASONS = [
+  { id: 'WELCOME_OTHERS', label: 'Welcome newcomers' },
+  { id: 'CULTURAL_EXCHANGE', label: 'Cultural exchange' },
+  { id: 'COMMUNITY_BUILDING', label: 'Community building' },
+  { id: 'PROFESSIONAL_NETWORK', label: 'Professional networking' },
+  { id: 'LANGUAGE_PRACTICE', label: 'Language practice' },
+  { id: 'OTHER', label: 'Other' },
 ];
 
 // Helper to get random items from array
@@ -269,6 +306,87 @@ function Profile() {
               {displayProfile?.location?.city}, {displayProfile?.location?.country}
             </p>
           )}
+        </div>
+
+        {/* Mobility Context */}
+        <div className="p-6 border-b border-dark-600">
+          <h3 className="text-sm text-dark-300 mb-3 flex items-center gap-2">
+            <Globe size={16} />
+            Mobility Status
+          </h3>
+          {(() => {
+            const mobility = profile?.mobility;
+            if (!mobility?.mode) {
+              return (
+                <p className="text-dark-400 italic">
+                  {isOwnProfile ? 'Complete your mobility profile in onboarding' : 'No mobility info'}
+                </p>
+              );
+            }
+
+            const isTraveler = mobility.mode === 'TRAVELER';
+            const destination = mobility.area?.city
+              ? `${mobility.area.city}, ${mobility.area.country}`
+              : mobility.area?.country || 'Not specified';
+            const goal = GOALS.find(g => g.id === mobility.goal);
+            const intent = CONNECTION_INTENTS.find(i => i.id === mobility.connectionIntent);
+            const reason = isTraveler
+              ? TRAVEL_REASONS.find(r => r.id === mobility.travelReason)
+              : LOCAL_REASONS.find(r => r.id === mobility.localReason);
+
+            return (
+              <div className="space-y-3">
+                {/* Mode Badge */}
+                <div className="flex items-center gap-3">
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
+                    isTraveler
+                      ? 'bg-accent-400/20 text-accent-400'
+                      : 'bg-primary-400/20 text-primary-400'
+                  }`}>
+                    {isTraveler ? <Plane size={16} /> : <Home size={16} />}
+                    {isTraveler ? 'Traveler' : 'Local'}
+                  </div>
+                  <span className="text-dark-200">
+                    {isTraveler ? 'Going to' : 'Living in'} <span className="font-medium text-white">{destination}</span>
+                  </span>
+                </div>
+
+                {/* Goal & Intent */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {goal && (
+                    <div className="flex items-center gap-2 p-3 bg-dark-700 rounded-lg">
+                      <Target size={16} className="text-dark-400" />
+                      <div>
+                        <p className="text-xs text-dark-400">Goal</p>
+                        <p className="text-sm font-medium flex items-center gap-1">
+                          <span>{goal.icon}</span> {goal.label}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {intent && (
+                    <div className="flex items-center gap-2 p-3 bg-dark-700 rounded-lg">
+                      <Compass size={16} className="text-dark-400" />
+                      <div>
+                        <p className="text-xs text-dark-400">Looking for</p>
+                        <p className="text-sm font-medium flex items-center gap-1">
+                          <span>{intent.icon}</span> {intent.label}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Reason */}
+                {reason && (
+                  <div className="flex items-center gap-2 text-sm text-dark-300">
+                    <span className="text-dark-400">{isTraveler ? 'Why traveling:' : 'Why participating:'}</span>
+                    <span className="text-white">{reason.label}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Bio (Extended Profile - Friends only or own) */}
