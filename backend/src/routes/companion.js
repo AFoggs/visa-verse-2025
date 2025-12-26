@@ -62,6 +62,7 @@ router.post('/chat', async (req, res) => {
     res.json({
       message: response.message,
       detectedInterest: response.detectedInterest,
+      detectedMobility: response.detectedMobility,
     });
   } catch (error) {
     console.error('Companion chat error:', error);
@@ -149,6 +150,69 @@ router.post('/confirm-interest', async (req, res) => {
   } catch (error) {
     console.error('Confirm interest error:', error);
     res.status(500).json({ error: 'Failed to confirm interest' });
+  }
+});
+
+// Confirm or update detected mobility
+router.post('/confirm-mobility', async (req, res) => {
+  try {
+    const { mobility, confirm } = req.body;
+
+    if (!mobility || typeof confirm !== 'boolean') {
+      return res.status(400).json({ error: 'Mobility data and confirm flag are required' });
+    }
+
+    const db = getDb();
+
+    if (confirm) {
+      // Validate the mobility data
+      const validModes = ['LOCAL', 'TRAVELER'];
+      if (!validModes.includes(mobility.mode)) {
+        return res.status(400).json({ error: 'Invalid mode' });
+      }
+
+      if (!mobility.country || typeof mobility.country !== 'string') {
+        return res.status(400).json({ error: 'Country is required' });
+      }
+
+      // Build the mobility object
+      const mobilityUpdate = {
+        mode: mobility.mode,
+        area: {
+          country: mobility.country.trim(),
+          city: mobility.city ? mobility.city.trim() : '',
+        },
+        updatedAt: new Date(),
+      };
+
+      // Preserve existing goal and connectionIntent if not provided
+      const userDoc = await db.collection('users').doc(req.user.uid).get();
+      const existingMobility = userDoc.data()?.mobility || {};
+
+      await db.collection('users').doc(req.user.uid).update({
+        mobility: {
+          ...existingMobility,
+          ...mobilityUpdate,
+        },
+      });
+    }
+
+    // Track detected mobility in companion conversation
+    const companionDoc = await db.collection('companionConversations').doc(req.user.uid).get();
+    const companionData = companionDoc.exists ? companionDoc.data() : {};
+    const detectedMobility = companionData.detectedMobility || [];
+
+    await db.collection('companionConversations').doc(req.user.uid).update({
+      detectedMobility: [
+        ...detectedMobility,
+        { ...mobility, confirmed: confirm, timestamp: new Date() },
+      ],
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Confirm mobility error:', error);
+    res.status(500).json({ error: 'Failed to confirm mobility' });
   }
 });
 

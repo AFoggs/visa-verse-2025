@@ -51,6 +51,12 @@ export const companionApi = {
       method: 'POST',
       body: JSON.stringify({ interest, confirm }),
     }),
+
+  confirmMobility: (mobility, confirm) =>
+    fetchWithAuth('/api/companion/confirm-mobility', {
+      method: 'POST',
+      body: JSON.stringify({ mobility, confirm }),
+    }),
 };
 
 // Matches API
