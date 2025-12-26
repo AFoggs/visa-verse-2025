@@ -405,8 +405,9 @@ function Chat() {
   const refreshIcebreakers = async () => {
     setLoadingIcebreakers(true);
     try {
-      const data = await chatApi.getIcebreakers(matchId + '?refresh=true');
+      const data = await chatApi.getIcebreakers(matchId, true);
       setIcebreakers(data.icebreakers || []);
+      setCurrentIcebreakerIndex(0);
     } catch (error) {
       console.error('Refresh icebreakers error:', error);
     } finally {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
@@ -11,6 +11,7 @@ export function useSocket() {
 export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
   const { user } = useAuth();
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export function SocketProvider({ children }) {
         newSocket.on('disconnect', () => {
           console.log('Socket disconnected');
           setConnected(false);
+          setOnlineUsers(new Set());
         });
 
         newSocket.on('connect_error', (error) => {
@@ -55,6 +57,33 @@ export function SocketProvider({ children }) {
 
         newSocket.on('error', (error) => {
           console.error('Socket error:', error.message);
+        });
+
+        // Online status tracking
+        newSocket.on('user_online', ({ userId }) => {
+          setOnlineUsers(prev => new Set([...prev, userId]));
+        });
+
+        newSocket.on('user_offline', ({ userId }) => {
+          setOnlineUsers(prev => {
+            const updated = new Set(prev);
+            updated.delete(userId);
+            return updated;
+          });
+        });
+
+        newSocket.on('online_status_response', ({ onlineStatus }) => {
+          setOnlineUsers(prev => {
+            const updated = new Set(prev);
+            Object.entries(onlineStatus).forEach(([userId, isOnline]) => {
+              if (isOnline) {
+                updated.add(userId);
+              } else {
+                updated.delete(userId);
+              }
+            });
+            return updated;
+          });
         });
 
         setSocket(newSocket);
@@ -111,6 +140,18 @@ export function SocketProvider({ children }) {
     }
   }
 
+  // Check if a user is online
+  const isUserOnline = useCallback((userId) => {
+    return onlineUsers.has(userId);
+  }, [onlineUsers]);
+
+  // Request online status for a list of user IDs
+  const requestOnlineStatus = useCallback((userIds) => {
+    if (socket && connected && userIds.length > 0) {
+      socket.emit('get_online_status', { userIds });
+    }
+  }, [socket, connected]);
+
   const value = {
     socket,
     connected,
@@ -119,6 +160,9 @@ export function SocketProvider({ children }) {
     sendMessage,
     startTyping,
     stopTyping,
+    onlineUsers,
+    isUserOnline,
+    requestOnlineStatus,
   };
 
   return (

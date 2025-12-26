@@ -8,6 +8,11 @@ const socketMessageCounts = new Map(); // Track message counts per socket for ra
 const SOCKET_RATE_LIMIT = 30; // Max messages per window
 const SOCKET_RATE_WINDOW = 60000; // 1 minute window
 
+// Get list of online user IDs
+export function getOnlineUsers() {
+  return Array.from(connectedUsers.keys());
+}
+
 export function setupSocketHandlers(io) {
   // Socket authentication middleware
   io.use(async (socket, next) => {
@@ -46,10 +51,22 @@ export function setupSocketHandlers(io) {
     connectedUsers.set(userId, socket.id);
     userSockets.set(userId, socket);
 
+    // Broadcast online status to all connected users
+    io.emit('user_online', { userId });
+
     // Join user-specific room for global notifications
     socket.on('join_user_room', ({ userId: uid }) => {
       socket.join(`user_${uid}`);
       console.log(`User ${uid} joined their notification room`);
+    });
+
+    // Request online status of specific users
+    socket.on('get_online_status', ({ userIds }) => {
+      const onlineStatus = {};
+      userIds.forEach(id => {
+        onlineStatus[id] = connectedUsers.has(id);
+      });
+      socket.emit('online_status_response', { onlineStatus });
     });
 
     // Join a chat room
@@ -229,6 +246,9 @@ export function setupSocketHandlers(io) {
       connectedUsers.delete(userId);
       userSockets.delete(userId);
       socketMessageCounts.delete(socket.id); // Clean up rate limit data
+
+      // Broadcast offline status to all connected users
+      io.emit('user_offline', { userId });
 
       // Remove from all rooms
       roomUsers.forEach((users, roomId) => {

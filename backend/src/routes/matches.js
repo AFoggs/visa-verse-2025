@@ -333,6 +333,48 @@ router.post('/decline', async (req, res) => {
       });
     }
 
+    // Find and update any pending match between these users
+    const pendingMatches1 = await db.collection('matches')
+      .where('user1Id', '==', userId)
+      .where('user2Id', '==', req.user.uid)
+      .where('status', '==', 'pending')
+      .get();
+
+    const pendingMatches2 = await db.collection('matches')
+      .where('user1Id', '==', req.user.uid)
+      .where('user2Id', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
+
+    // Update all pending matches to declined
+    const batch = db.batch();
+    let matchesUpdated = 0;
+
+    pendingMatches1.forEach(doc => {
+      batch.update(doc.ref, {
+        status: 'declined',
+        declinedBy: req.user.uid,
+        declinedAt: new Date(),
+        declineReason: feedback || null,
+      });
+      matchesUpdated++;
+    });
+
+    pendingMatches2.forEach(doc => {
+      batch.update(doc.ref, {
+        status: 'declined',
+        declinedBy: req.user.uid,
+        declinedAt: new Date(),
+        declineReason: feedback || null,
+      });
+      matchesUpdated++;
+    });
+
+    if (matchesUpdated > 0) {
+      await batch.commit();
+      console.log(`Declined ${matchesUpdated} pending matches between ${req.user.uid} and ${userId}`);
+    }
+
     // Add to strangers list (declined)
     const userDoc = await db.collection('users').doc(req.user.uid).get();
     const userData = userDoc.data();
@@ -344,7 +386,7 @@ router.post('/decline', async (req, res) => {
       });
     }
 
-    res.json({ success: true });
+    res.json({ success: true, matchesDeclined: matchesUpdated });
   } catch (error) {
     console.error('Decline error:', error);
     res.status(500).json({ error: 'Failed to decline' });

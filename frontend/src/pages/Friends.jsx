@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { userApi, matchesApi } from '../services/api';
 import { useNotifications } from '../context/NotificationContext';
+import { useSocket } from '../context/SocketContext';
 
 function Friends() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ function Friends() {
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState(null);
   const { getUnreadCount, totalUnread, permissionStatus, requestPermission } = useNotifications();
+  const { isUserOnline, requestOnlineStatus, connected } = useSocket();
 
   const loadData = async () => {
     try {
@@ -51,6 +53,20 @@ function Friends() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Request online status for all friends and connections when socket connects
+  useEffect(() => {
+    if (connected && (friends.length > 0 || connections.length > 0)) {
+      const userIds = [
+        ...friends.map(f => f.otherUser?.userId),
+        ...connections.map(c => c.otherUser?.userId),
+      ].filter(Boolean);
+
+      if (userIds.length > 0) {
+        requestOnlineStatus(userIds);
+      }
+    }
+  }, [connected, friends, connections, requestOnlineStatus]);
 
   const handleAccept = async (matchId) => {
     setActionLoading(matchId);
@@ -288,8 +304,8 @@ function Friends() {
                   >
                     {user?.name?.charAt(0) || '?'}
                   </div>
-                  {/* Online indicator (simulated) */}
-                  {activeTab === 'friends' && Math.random() > 0.5 && (
+                  {/* Online indicator */}
+                  {(activeTab === 'friends' || activeTab === 'connections') && isUserOnline(user?.userId) && (
                     <Circle
                       size={14}
                       className="absolute bottom-0 right-0 fill-success-400 text-success-400"

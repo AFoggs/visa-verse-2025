@@ -117,7 +117,8 @@ export const chatApi = {
       body: JSON.stringify({ content, type }),
     }),
 
-  getIcebreakers: (matchId) => fetchWithAuth(`/api/chat/${matchId}/icebreakers`),
+  getIcebreakers: (matchId, refresh = false) =>
+    fetchWithAuth(`/api/chat/${matchId}/icebreakers${refresh ? '?refresh=true' : ''}`),
 
   getTopicPrompt: (matchId) => fetchWithAuth(`/api/chat/${matchId}/topic-prompt`),
 };
