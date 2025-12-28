@@ -226,9 +226,9 @@ function Discover() {
     : currentMatch?.mobility?.area?.country;
 
   return (
-    <div className="max-w-md mx-auto px-4 py-4">
+    <div className="max-w-md mx-auto px-4 py-6">
       {/* Progress indicator */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-5">
         <button
           onClick={prevMatch}
           disabled={currentIndex === 0}
@@ -263,11 +263,11 @@ function Discover() {
           className="card p-0 overflow-hidden"
         >
           {/* Header with avatar */}
-          <div className="bg-gradient-to-br from-primary-400/20 to-accent-400/20 p-5 text-center">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-2xl font-bold mx-auto mb-2">
+          <div className="bg-gradient-to-br from-primary-400/20 to-accent-400/20 p-6 text-center">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-3xl font-bold mx-auto mb-3">
               {currentMatch?.name?.charAt(0) || '?'}
             </div>
-            <h2 className="text-xl font-bold mb-1">
+            <h2 className="text-2xl font-bold mb-1">
               {currentMatch?.name}, {currentMatch?.age}
             </h2>
 
@@ -287,8 +287,8 @@ function Discover() {
           </div>
 
           {/* Match Reasons - Always visible */}
-          <div className="px-4 py-3 bg-dark-700/50 border-b border-dark-600">
-            <h3 className="text-xs text-dark-400 mb-1 uppercase tracking-wide">Why this match</h3>
+          <div className="px-5 py-3 bg-dark-700/50 border-b border-dark-600">
+            <h3 className="text-xs text-dark-400 mb-2 uppercase tracking-wide">Why this match</h3>
             <div className="flex flex-wrap gap-2">
               {matchReasons.map((reason, idx) => (
                 <span
@@ -303,7 +303,7 @@ function Discover() {
             {/* AI-generated match summary - scrollable */}
             {currentMatch?.aiSummary && (
               <div className="mt-2 max-h-16 overflow-y-auto">
-                <p className="text-xs text-dark-200 italic">
+                <p className="text-sm text-dark-200 italic">
                   {currentMatch.aiSummary}
                 </p>
               </div>
@@ -311,7 +311,7 @@ function Discover() {
           </div>
 
           {/* Compatibility */}
-          <div className="px-4 py-3 border-b border-dark-600">
+          <div className="px-5 py-4 border-b border-dark-600">
             <div className="flex items-center justify-between mb-2">
               <span className="text-dark-300">Compatibility</span>
               <span className="text-success-400 font-bold flex items-center gap-1">
@@ -329,15 +329,15 @@ function Discover() {
 
           {/* Why Here */}
           {currentMatch?.whyHere && (
-            <div className="px-4 py-2 border-b border-dark-600">
-              <h3 className="text-xs text-dark-300 mb-1">Looking for</h3>
-              <p className="text-sm font-medium">{currentMatch.whyHere}</p>
+            <div className="px-5 py-4 border-b border-dark-600">
+              <h3 className="text-sm text-dark-300 mb-1">Looking for</h3>
+              <p className="font-medium">{currentMatch.whyHere}</p>
             </div>
           )}
 
           {/* Shared Interests */}
-          <div className="px-4 py-3">
-            <h3 className="text-xs text-dark-300 mb-2">Shared Interests</h3>
+          <div className="px-5 py-4">
+            <h3 className="text-sm text-dark-300 mb-2">Shared Interests</h3>
             <div className="flex flex-wrap gap-2">
               {currentMatch?.sharedInterests?.length > 0 ? (
                 currentMatch.sharedInterests.map((interest) => (
@@ -354,9 +354,9 @@ function Discover() {
             </div>
             {currentMatch?.otherInterests?.length > 0 && (
               <>
-                <h3 className="text-xs text-dark-300 mb-2 mt-3">Their Other Interests</h3>
-                <div className="flex flex-wrap gap-1">
-                  {currentMatch.otherInterests.slice(0, 4).map((interest) => (
+                <h3 className="text-sm text-dark-300 mb-2 mt-3">Their Other Interests</h3>
+                <div className="flex flex-wrap gap-2">
+                  {currentMatch.otherInterests.slice(0, 5).map((interest) => (
                     <span
                       key={interest}
                       className="px-3 py-1 bg-dark-600 rounded-full text-sm"
@@ -432,22 +432,22 @@ function Discover() {
 
       {/* Action Buttons */}
       {!showFeedback && !successMessage && (
-        <div className="flex gap-3 mt-4">
+        <div className="flex gap-4 mt-5">
           <button
             onClick={handleDecline}
             disabled={actionLoading}
             className="btn-secondary flex-1 py-3 flex items-center justify-center gap-2"
           >
-            <ThumbsDown size={20} />
-            Pass
+            <ThumbsDown size={22} />
+            Not Interested
           </button>
           <button
             onClick={handleConnect}
             disabled={actionLoading}
             className="btn-success flex-1 py-3 flex items-center justify-center gap-2"
           >
-            <ThumbsUp size={20} />
-            Connect
+            <ThumbsUp size={22} />
+            Connect Now
           </button>
         </div>
       )}
