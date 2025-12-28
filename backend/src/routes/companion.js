@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../config/firebase.js';
 import { generateCompanionResponse, analyzePersonality } from '../services/claude.js';
 import { extractPersonalityProfile } from '../services/personalityAnalysis.js';
+import { updateCityPersonalization } from '../services/cityPersonalization.js';
 
 const router = Router();
 
@@ -149,8 +150,16 @@ router.post('/confirm-interest', async (req, res) => {
 
       // Add if not already present and under limit
       if (!currentInterests.includes(interest) && currentInterests.length < 10) {
+        const newInterests = [...currentInterests, interest];
         await db.collection('users').doc(req.user.uid).update({
-          'profile.interests': [...currentInterests, interest],
+          'profile.interests': newInterests,
+        });
+
+        // Trigger city personalization refresh for any viewed cities
+        const cityDiscovery = userData.cityDiscovery || {};
+        Object.keys(cityDiscovery).forEach(cityId => {
+          updateCityPersonalization(req.user.uid, cityId, newInterests)
+            .catch(err => console.error('City personalization refresh failed:', err));
         });
       }
     }

@@ -16,6 +16,7 @@ import Chat from './pages/Chat';
 import Friends from './pages/Friends';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import CityDiscovery from './pages/CityDiscovery';
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -107,6 +108,7 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/profile/:userId" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/city-discovery" element={<CityDiscovery />} />
       </Route>
 
       {/* Catch all */}

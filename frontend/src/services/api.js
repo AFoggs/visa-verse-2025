@@ -184,10 +184,60 @@ export const gamesApi = {
   getGameState: (matchId) => fetchWithAuth(`/api/games/${matchId}/state`),
 };
 
+// City Discovery API
+export const cityDiscoveryApi = {
+  // Get personalized city content
+  getCityContent: (cityId) => fetchWithAuth(`/api/city-discovery/${cityId}`),
+
+  // Force regenerate personalized content
+  regenerateCityContent: (cityId) =>
+    fetchWithAuth(`/api/city-discovery/${cityId}/generate`, {
+      method: 'POST',
+    }),
+
+  // Find relevant locals for a city
+  getRelevantLocals: (cityId) => fetchWithAuth(`/api/city-discovery/${cityId}/locals`),
+
+  // Bookmark management
+  addBookmark: (cityId, item) =>
+    fetchWithAuth(`/api/city-discovery/${cityId}/bookmark`, {
+      method: 'POST',
+      body: JSON.stringify({ item }),
+    }),
+
+  removeBookmark: (cityId, item) =>
+    fetchWithAuth(`/api/city-discovery/${cityId}/bookmark`, {
+      method: 'DELETE',
+      body: JSON.stringify({ item }),
+    }),
+
+  getBookmarks: (cityId) => fetchWithAuth(`/api/city-discovery/${cityId}/bookmarks`),
+
+  // Notes management
+  saveNotes: (cityId, notes) =>
+    fetchWithAuth(`/api/city-discovery/${cityId}/notes`, {
+      method: 'PUT',
+      body: JSON.stringify({ notes }),
+    }),
+
+  getNotes: (cityId) => fetchWithAuth(`/api/city-discovery/${cityId}/notes`),
+
+  // Get available cities
+  getAvailableCities: () => fetchWithAuth('/api/city-discovery/cities/available'),
+
+  // Create a new city
+  createCity: (cityName, country) =>
+    fetchWithAuth('/api/city-discovery/cities/create', {
+      method: 'POST',
+      body: JSON.stringify({ cityName, country }),
+    }),
+};
+
 export default {
   companionApi,
   matchesApi,
   chatApi,
   userApi,
   gamesApi,
+  cityDiscoveryApi,
 };

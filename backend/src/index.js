@@ -16,6 +16,7 @@ import companionRoutes from './routes/companion.js';
 import matchRoutes from './routes/matches.js';
 import chatRoutes from './routes/chat.js';
 import gamesRoutes from './routes/games.js';
+import cityDiscoveryRoutes from './routes/cityDiscovery.js';
 
 // Socket handlers
 import { setupSocketHandlers } from './services/socket.js';
@@ -79,6 +80,7 @@ app.use('/api/companion', authMiddleware, companionRoutes);
 app.use('/api/matches', authMiddleware, matchRoutes);
 app.use('/api/chat', authMiddleware, chatRoutes);
 app.use('/api/games', authMiddleware, gamesRoutes);
+app.use('/api/city-discovery', authMiddleware, cityDiscoveryRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

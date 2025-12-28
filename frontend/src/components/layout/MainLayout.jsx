@@ -8,6 +8,7 @@ import {
   Sparkles,
   Bell,
   Globe,
+  Compass,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -49,6 +50,7 @@ function MainLayout() {
     { path: '/dashboard', icon: Home, label: 'Home' },
     { path: '/companion', icon: Sparkles, label: 'Companion' },
     { path: '/discover', icon: Globe, label: 'Discover' },
+    { path: '/city-discovery', icon: Compass, label: 'City Guide' },
     { path: '/friends', icon: Users, label: 'Friends', showBadge: true },
     { path: '/profile', icon: User, label: 'Profile' },
   ];
