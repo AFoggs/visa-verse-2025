@@ -134,23 +134,26 @@ export function calculateCompatibility(user1, user2) {
     expertise: calculateExpertiseScore(user1, user2),
     // Predictive conversation quality score
     conversationQuality: calculateConversationQualityScore(user1, user2),
+    // Timeline compatibility
+    timeline: calculateTimelineScore(user1, user2),
   };
 
   // Weighted score with new dimensions
   const weightedScore =
-    scores.mobility * 0.15 +            // Mobility matching (15%)
-    scores.interest * 0.16 +            // Shared interests (16%) - reduced from 18%
-    scores.style * 0.07 +               // Personality style (7%) - reduced from 8%
-    scores.value * 0.09 +               // Shared values (9%) - reduced from 10%
+    scores.mobility * 0.14 +            // Mobility matching (14%) - reduced from 15%
+    scores.interest * 0.15 +            // Shared interests (15%) - reduced from 16%
+    scores.style * 0.06 +               // Personality style (6%) - reduced from 7%
+    scores.value * 0.08 +               // Shared values (8%) - reduced from 9%
     scores.goal * 0.05 +                // Goal alignment (5%)
-    scores.language * 0.09 +            // Language compatibility (9%) - reduced from 10%
-    scores.activity * 0.07 +            // Activity alignment (7%) - reduced from 8%
-    scores.schedule * 0.05 +            // Schedule compatibility (5%) - reduced from 6%
-    scores.social * 0.05 +              // Social style (5%) - reduced from 6%
+    scores.language * 0.08 +            // Language compatibility (8%) - reduced from 9%
+    scores.activity * 0.06 +            // Activity alignment (6%) - reduced from 7%
+    scores.schedule * 0.05 +            // Schedule compatibility (5%)
+    scores.social * 0.05 +              // Social style (5%)
     scores.lifeStage * 0.05 +           // Life stage (5%)
     scores.cultural * 0.05 +            // Cultural bridge (5%)
     scores.expertise * 0.04 +           // Expertise match (4%)
-    scores.conversationQuality * 0.08;  // Predicted conversation quality (8%) - NEW
+    scores.conversationQuality * 0.08 + // Predicted conversation quality (8%)
+    scores.timeline * 0.06;             // Timeline compatibility (6%) - NEW
 
   // Add shared interests to reasons if we have room
   const sharedInterests = getSharedInterests(user1, user2);
@@ -631,6 +634,76 @@ function calculateConversationQualityScore(user1, user2) {
   const personality2 = user2.companionData?.personalityProfile;
 
   return predictConversationQuality(personality1, personality2);
+}
+
+// NEW: Timeline compatibility - prioritize users who will be in the same place at the same time
+function calculateTimelineScore(user1, user2) {
+  const fp1 = getFingerprint(user1);
+  const fp2 = getFingerprint(user2);
+
+  const timeline1 = fp1.timeline;
+  const timeline2 = fp2.timeline;
+
+  if (!timeline1 && !timeline2) return 60; // Neutral if no data
+
+  let score = 60;
+
+  // Local ↔ Traveler timeline matching
+  if (user1.mobility?.mode === 'LOCAL' && user2.mobility?.mode === 'TRAVELER') {
+    const travelerTimeline = timeline2;
+
+    if (travelerTimeline) {
+      // Traveler arriving soon + local available now = great match
+      if (travelerTimeline.urgency === 'immediate') {
+        score += 30;
+      } else if (travelerTimeline.urgency === 'planning') {
+        score += 15; // Can plan ahead
+      }
+
+      // Long-term stay matches better with locals
+      if (travelerTimeline.departureDate === 'staying' || !travelerTimeline.departureDate) {
+        score += 10; // More time to build friendship
+      }
+    }
+  } else if (user2.mobility?.mode === 'LOCAL' && user1.mobility?.mode === 'TRAVELER') {
+    // Same logic, reversed
+    const travelerTimeline = timeline1;
+
+    if (travelerTimeline) {
+      if (travelerTimeline.urgency === 'immediate') {
+        score += 30;
+      } else if (travelerTimeline.urgency === 'planning') {
+        score += 15;
+      }
+
+      if (travelerTimeline.departureDate === 'staying' || !travelerTimeline.departureDate) {
+        score += 10;
+      }
+    }
+  } else if (timeline1 && timeline2) {
+    // Traveler ↔ Traveler timeline overlap
+    const overlap = calculateTimelineOverlap(timeline1, timeline2);
+    score += overlap * 40; // 0-1 overlap → 0-40 points
+  }
+
+  return Math.min(score, 100);
+}
+
+function calculateTimelineOverlap(t1, t2) {
+  // Simplified - in reality, parse dates and calculate actual overlap
+  if (!t1.arrivalDate || !t2.arrivalDate) return 0.5;
+
+  // Both staying long-term
+  if (t1.departureDate === 'staying' && t2.departureDate === 'staying') {
+    return 1.0;
+  }
+
+  // Both have similar urgency
+  if (t1.urgency === t2.urgency) {
+    return 0.8;
+  }
+
+  return 0.5; // Default moderate overlap
 }
 
 function getSharedInterests(user1, user2) {

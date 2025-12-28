@@ -115,6 +115,12 @@ EXPERTISE (skills or knowledge they can share):
 DEAL BREAKERS (strong preferences or non-negotiables):
 [DEALBREAKER_DETECTED: {"type": "preference_type", "value": "the preference"}]
 
+TRAVEL TIMELINE (when they're arriving/leaving):
+[TIMELINE_DETECTED: {"arrivalDate": "YYYY-MM-DD"|"soon"|"next_month"|null, "departureDate": "YYYY-MM-DD"|"staying"|null, "urgency": "immediate"|"planning"|"flexible"}]
+
+AVAILABILITY WINDOWS (when they're free to meet):
+[AVAILABILITY_DETECTED: {"weekdays": ["Monday", "Tuesday"], "timeOfDay": "morning"|"afternoon"|"evening"|"flexible", "frequency": "daily"|"weekly"|"occasional"}]
+
 Rules for detection:
 - Only tag signals that are clearly stated, not inferred
 - One tag per signal type per message (combine if multiple of same type)
@@ -179,6 +185,8 @@ Consider this approach: ${randomStyle}
       /\[CULTURAL_DETECTED:\s*\{[^}]+\}\]/g,
       /\[EXPERTISE_DETECTED:\s*\{[^}]+\}\]/g,
       /\[DEALBREAKER_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[TIMELINE_DETECTED:\s*\{[^}]+\}\]/g,
+      /\[AVAILABILITY_DETECTED:\s*\{[^}]+\}\]/g,
     ];
 
     for (const pattern of signalPatterns) {
@@ -293,6 +301,26 @@ function parseDetectedSignals(content) {
       signals.dealBreaker = JSON.parse(dealBreakerMatch[1]);
     } catch {
       console.log('Failed to parse deal breaker detection');
+    }
+  }
+
+  // Timeline detection
+  const timelineMatch = content.match(/\[TIMELINE_DETECTED:\s*(\{[^}]+\})\]/);
+  if (timelineMatch) {
+    try {
+      signals.timeline = JSON.parse(timelineMatch[1]);
+    } catch {
+      console.log('Failed to parse timeline detection');
+    }
+  }
+
+  // Availability detection
+  const availabilityMatch = content.match(/\[AVAILABILITY_DETECTED:\s*(\{[^}]+\})\]/);
+  if (availabilityMatch) {
+    try {
+      signals.availability = JSON.parse(availabilityMatch[1]);
+    } catch {
+      console.log('Failed to parse availability detection');
     }
   }
 
@@ -541,6 +569,20 @@ export function aggregateSignals(existingFingerprint, newSignals) {
   if (newSignals.dealBreaker) {
     fingerprint.dealBreakers = fingerprint.dealBreakers || [];
     fingerprint.dealBreakers.push(newSignals.dealBreaker);
+  }
+
+  if (newSignals.timeline) {
+    fingerprint.timeline = {
+      ...newSignals.timeline,
+      detectedAt: new Date().toISOString(),
+    };
+  }
+
+  if (newSignals.availability) {
+    fingerprint.availability = {
+      ...newSignals.availability,
+      detectedAt: new Date().toISOString(),
+    };
   }
 
   return fingerprint;
