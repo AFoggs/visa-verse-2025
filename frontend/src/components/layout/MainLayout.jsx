@@ -11,12 +11,39 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useTheme } from '../../context/ThemeContext';
 import { motion } from 'framer-motion';
+
+// Profile avatar component for header
+function HeaderAvatar({ userProfile, size = 'sm' }) {
+  const photoUrl = userProfile?.profile?.photoUrl;
+  const name = userProfile?.profile?.name || 'User';
+  const initial = name.charAt(0).toUpperCase();
+
+  const sizeClass = size === 'sm' ? 'w-8 h-8 text-sm' : 'w-10 h-10 text-base';
+
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt={name}
+        className={`${sizeClass} rounded-full object-cover border-2 border-primary-400/50`}
+      />
+    );
+  }
+
+  return (
+    <div className={`${sizeClass} rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center font-semibold text-white`}>
+      {initial}
+    </div>
+  );
+}
 
 function MainLayout() {
   const { logout, userProfile } = useAuth();
   const location = useLocation();
   const { totalUnread, permissionStatus, requestPermission } = useNotifications();
+  const { isDark } = useTheme();
 
   const navItems = [
     { path: '/dashboard', icon: Home, label: 'Home' },
@@ -35,9 +62,9 @@ function MainLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-dark-800 flex flex-col">
+    <div className={`min-h-screen flex flex-col ${isDark ? 'bg-dark-800' : 'bg-gray-100'}`}>
       {/* Header - Desktop */}
-      <header className="hidden md:flex fixed top-0 left-0 right-0 h-16 bg-dark-700/90 backdrop-blur-md border-b border-dark-600 z-50">
+      <header className={`hidden md:flex fixed top-0 left-0 right-0 h-16 backdrop-blur-md border-b z-50 ${isDark ? 'bg-dark-700/90 border-dark-600' : 'bg-white/90 border-gray-200'}`}>
         <div className="max-w-7xl mx-auto w-full px-4 flex items-center justify-between">
           {/* Logo */}
           <NavLink to="/dashboard" className="flex items-center gap-2">
@@ -74,9 +101,14 @@ function MainLayout() {
 
           {/* User Menu */}
           <div className="flex items-center gap-4">
-            <span className="text-dark-200 text-sm">
-              {userProfile?.profile?.name || 'User'}
-            </span>
+            {/* Profile Icon */}
+            <NavLink
+              to="/profile"
+              className="rounded-full hover:ring-2 hover:ring-primary-400/50 transition-all"
+              title={userProfile?.profile?.name || 'Profile'}
+            >
+              <HeaderAvatar userProfile={userProfile} size="sm" />
+            </NavLink>
             {permissionStatus === 'default' && (
               <button
                 onClick={requestPermission}
@@ -127,7 +159,7 @@ function MainLayout() {
       </main>
 
       {/* Mobile Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-dark-700/90 backdrop-blur-md border-t border-dark-600 z-50 safe-area-inset-bottom">
+      <nav className={`md:hidden fixed bottom-0 left-0 right-0 backdrop-blur-md border-t z-50 safe-area-inset-bottom ${isDark ? 'bg-dark-700/90 border-dark-600' : 'bg-white/90 border-gray-200'}`}>
         <div className="flex justify-around items-center h-16">
           {navItems.map((item) => (
             <NavLink
@@ -137,7 +169,7 @@ function MainLayout() {
                 `flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all duration-200 relative ${
                   isActive
                     ? 'text-primary-400'
-                    : 'text-dark-300 hover:text-white'
+                    : isDark ? 'text-dark-300 hover:text-white' : 'text-gray-500 hover:text-gray-900'
                 }`
               }
             >
