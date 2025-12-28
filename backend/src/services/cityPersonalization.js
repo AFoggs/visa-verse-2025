@@ -61,55 +61,54 @@ export async function generatePersonalizedCityContent(userId, cityId) {
 }
 
 async function generateAIPersonalization(userProfile, cityContent, personality) {
-  const prompt = `You're creating a personalized city guide for a traveler. Make it feel tailored and relevant.
+  const cityName = cityContent.cityName;
+  const country = cityContent.country;
+  const interestsList = userProfile.interests.length > 0 ? userProfile.interests.join(', ') : 'general exploration, meeting locals, experiencing culture';
 
-CITY: ${cityContent.cityName}, ${cityContent.country}
+  const prompt = `You're creating a personalized city guide for ${cityName}, ${country}. Use your knowledge of this city to provide specific, real recommendations.
 
 USER PROFILE:
-- Interests: ${userProfile.interests.join(', ') || 'Not specified'}
+- Interests: ${interestsList}
 - Activity preference: ${userProfile.activityPreference}
 - Social style: ${userProfile.socialStyle}
-- Cultural curiosity: ${userProfile.culturalCuriosity}
-- Travel reason: ${userProfile.travelReason || 'Not specified'}
-- Why here: ${userProfile.whyHere || 'Not specified'}
+- Travel reason: ${userProfile.travelReason || 'exploring and connecting with locals'}
+- Why here: ${userProfile.whyHere || 'looking for authentic experiences'}
 
-AVAILABLE CONTENT:
-Neighborhoods: ${cityContent.baseContent?.neighborhoods?.map(n => n.name).join(', ') || 'Various neighborhoods'}
-Categories: ${cityContent.categories?.map(c => c.name).join(', ') || 'Food, Culture, Nightlife, Outdoor'}
-Cultural notes: ${cityContent.culturalNotes?.slice(0, 3).join('; ') || 'Rich local culture'}
-
-Generate a personalized city discovery experience. Return ONLY valid JSON:
+Generate a personalized city discovery experience with REAL places and activities in ${cityName}. Return ONLY valid JSON:
 
 {
-  "customIntro": "A warm, personalized 2-3 sentence intro that connects their interests to the city",
+  "customIntro": "A warm, personalized 2-3 sentence intro connecting their interests to ${cityName}'s unique offerings",
   "recommendedNeighborhoods": [
     {
-      "name": "neighborhood name",
-      "whyMatch": "why this fits their interests/style",
-      "highlights": ["specific thing 1", "specific thing 2"]
+      "name": "REAL neighborhood name in ${cityName}",
+      "whyMatch": "why this neighborhood fits their interests",
+      "highlights": ["specific attraction or feature", "another highlight"]
     }
   ],
   "mustDoActivities": [
     {
-      "activity": "specific activity",
+      "activity": "specific activity or place name",
       "whyRelevant": "how it connects to their interests",
-      "category": "food|culture|outdoor|nightlife|etc"
+      "category": "food|culture|outdoor|nightlife|social"
     }
   ],
   "hiddenGems": [
     {
-      "place": "name",
-      "description": "what makes it special for them",
-      "interest": "which of their interests it matches"
+      "place": "lesser-known spot name",
+      "description": "what makes it special and worth visiting",
+      "interest": "which interest it matches"
     }
   ],
   "practicalTips": [
-    "Tip tailored to their travel style/reason"
+    "Practical tip for visiting ${cityName}"
   ],
-  "localConnectionSuggestions": "What types of locals they should connect with based on their goals"
+  "localConnectionSuggestions": "What types of locals in ${cityName} would be great to connect with based on their goals"
 }
 
-Make recommendations SPECIFIC and PERSONAL. Don't be generic. Connect directly to their stated interests.`;
+IMPORTANT:
+- Provide 3 neighborhoods, 4 activities, 3 hidden gems, and 3 tips
+- Use REAL places in ${cityName} - not generic placeholders
+- Make recommendations specific to their stated interests: ${interestsList}`;
 
   try {
     const response = await anthropic.messages.create({
@@ -135,31 +134,73 @@ Make recommendations SPECIFIC and PERSONAL. Don't be generic. Connect directly t
 
 function generateFallbackContent(userProfile, cityContent) {
   const cityName = cityContent.cityName || 'this city';
+  const country = cityContent.country || '';
   const interests = userProfile.interests.slice(0, 3).join(', ') || 'exploring new places';
 
   return {
-    customIntro: `Welcome to ${cityName}! Based on your interest in ${interests}, we've curated some recommendations to help you make the most of your visit.`,
-    recommendedNeighborhoods: cityContent.baseContent?.neighborhoods?.slice(0, 3).map(n => ({
-      name: n.name,
-      whyMatch: n.description || 'A great area to explore',
-      highlights: [n.vibe || 'Unique atmosphere', n.priceRange || 'Various options']
-    })) || [],
-    mustDoActivities: cityContent.categories?.slice(0, 4).map(c => ({
-      activity: c.highlights?.[0] || c.name,
-      whyRelevant: c.description || 'Popular among visitors',
-      category: c.id || 'general'
-    })) || [],
-    hiddenGems: [{
-      place: 'Local favorites',
-      description: 'Ask locals through the app for personalized recommendations',
-      interest: interests.split(',')[0] || 'exploration'
-    }],
-    practicalTips: cityContent.localTips?.slice(0, 3) || [
-      'Connect with locals for insider tips',
-      'Explore beyond the tourist areas',
-      'Try the local cuisine'
+    customIntro: `Welcome to ${cityName}${country ? `, ${country}` : ''}! Based on your interest in ${interests}, we're preparing personalized recommendations. Connect with locals through the app to discover hidden gems and authentic experiences.`,
+    recommendedNeighborhoods: [
+      {
+        name: 'City Center',
+        whyMatch: 'The heart of the city with easy access to major attractions',
+        highlights: ['Central location', 'Walkable to main sites']
+      },
+      {
+        name: 'Local Quarter',
+        whyMatch: 'Where residents live and hang out - great for authentic experiences',
+        highlights: ['Local restaurants', 'Neighborhood cafes']
+      },
+      {
+        name: 'Arts District',
+        whyMatch: 'Creative hub with galleries, street art, and unique venues',
+        highlights: ['Cultural events', 'Independent shops']
+      }
     ],
-    localConnectionSuggestions: `Connect with locals who share your interest in ${interests} to get authentic recommendations.`
+    mustDoActivities: [
+      {
+        activity: 'Local food tour or market visit',
+        whyRelevant: 'Experience authentic local cuisine and food culture',
+        category: 'food'
+      },
+      {
+        activity: 'Walking tour of historic areas',
+        whyRelevant: 'Learn the city\'s story and discover hidden spots',
+        category: 'culture'
+      },
+      {
+        activity: 'Visit a local park or waterfront',
+        whyRelevant: 'See where locals relax and enjoy outdoor time',
+        category: 'outdoor'
+      },
+      {
+        activity: 'Evening in a local neighborhood bar or cafe',
+        whyRelevant: 'Meet locals in a relaxed social setting',
+        category: 'social'
+      }
+    ],
+    hiddenGems: [
+      {
+        place: 'Ask a local!',
+        description: 'The best hidden gems come from people who live here. Use the Locals tab to connect with residents who share your interests.',
+        interest: interests.split(',')[0]?.trim() || 'exploration'
+      },
+      {
+        place: 'Neighborhood breakfast spots',
+        description: 'Skip the hotel breakfast and find where locals grab their morning coffee',
+        interest: 'food'
+      },
+      {
+        place: 'Local community events',
+        description: 'Check local boards and apps for markets, meetups, and cultural events',
+        interest: 'culture'
+      }
+    ],
+    practicalTips: [
+      'Download offline maps before exploring neighborhoods',
+      'Learn a few local phrases - it goes a long way',
+      'Ask your connections in the app for their personal recommendations'
+    ],
+    localConnectionSuggestions: `Connect with locals who share your interest in ${interests}. They can share insider tips, recommend their favorite spots, and help you experience ${cityName} like a resident.`
   };
 }
 
@@ -194,7 +235,8 @@ export async function updateCityPersonalization(userId, cityId, updatedInterests
 }
 
 /**
- * Match locals who can provide relevant city insights
+ * Find locals who are either connected or potential matches
+ * Only shows: 1) Existing connections in this city, 2) Suggested matches (potential connections)
  */
 export async function findRelevantLocalContacts(userId, cityId, userInterests) {
   const db = getDb();
@@ -206,36 +248,92 @@ export async function findRelevantLocalContacts(userId, cityId, userInterests) {
   }
   const cityData = cityDoc.data();
 
-  // Find locals in this city who share interests
-  const localsQuery = await db.collection('users')
-    .where('mobility.mode', '==', 'LOCAL')
-    .where('mobility.area.city', '==', cityData.cityName)
-    .limit(50)
+  // Get user's existing connections and matches
+  const userDoc = await db.collection('users').doc(userId).get();
+  const userData = userDoc.data();
+  const connections = userData?.connections || [];
+  const friends = userData?.friends || [];
+  const connectedUserIds = new Set([...connections, ...friends]);
+
+  // Get pending matches (users who have sent connection requests or user has sent to)
+  const matchesQuery = await db.collection('matches')
+    .where('users', 'array-contains', userId)
     .get();
+
+  const pendingMatchIds = new Set();
+  matchesQuery.forEach(doc => {
+    const match = doc.data();
+    if (match.status === 'pending' || match.status === 'connected') {
+      match.users.forEach(uid => {
+        if (uid !== userId) pendingMatchIds.add(uid);
+      });
+    }
+  });
 
   const relevantLocals = [];
 
+  // First, find connected locals in this city
+  for (const connectedId of connectedUserIds) {
+    const connectedDoc = await db.collection('users').doc(connectedId).get();
+    if (!connectedDoc.exists) continue;
+
+    const connectedUser = connectedDoc.data();
+    const isLocal = connectedUser.mobility?.mode === 'LOCAL';
+    const isInCity = connectedUser.mobility?.area?.city?.toLowerCase() === cityData.cityName.toLowerCase();
+
+    if (isLocal && isInCity) {
+      const localInterests = connectedUser.profile?.interests || [];
+      const sharedInterests = userInterests.filter(i => localInterests.includes(i));
+
+      relevantLocals.push({
+        userId: connectedId,
+        name: connectedUser.profile?.name,
+        sharedInterests,
+        connectionStatus: friends.includes(connectedId) ? 'friend' : 'connected',
+        canMessage: true,
+      });
+    }
+  }
+
+  // Then, find potential matches (locals they haven't connected with yet)
+  const localsQuery = await db.collection('users')
+    .where('mobility.mode', '==', 'LOCAL')
+    .where('mobility.area.city', '==', cityData.cityName)
+    .limit(30)
+    .get();
+
   localsQuery.forEach(doc => {
     if (doc.id === userId) return; // Skip self
+    if (connectedUserIds.has(doc.id)) return; // Already added as connection
 
-    const local = { odloc: doc.id, ...doc.data() };
+    const local = doc.data();
     const localInterests = local.profile?.interests || [];
     const sharedInterests = userInterests.filter(i => localInterests.includes(i));
 
+    // Only suggest if they have at least 2 shared interests
     if (sharedInterests.length >= 2) {
       relevantLocals.push({
         userId: doc.id,
         name: local.profile?.name,
         sharedInterests,
-        expertise: local.companionData?.detectedSignals?.expertiseAreas || [],
+        connectionStatus: pendingMatchIds.has(doc.id) ? 'pending' : 'suggested',
+        canMessage: false,
       });
     }
   });
 
-  // Sort by shared interests
-  relevantLocals.sort((a, b) => b.sharedInterests.length - a.sharedInterests.length);
+  // Sort: connected first, then by shared interests
+  relevantLocals.sort((a, b) => {
+    // Connected users first
+    const aConnected = a.connectionStatus === 'friend' || a.connectionStatus === 'connected';
+    const bConnected = b.connectionStatus === 'friend' || b.connectionStatus === 'connected';
+    if (aConnected && !bConnected) return -1;
+    if (!aConnected && bConnected) return 1;
+    // Then by shared interests
+    return b.sharedInterests.length - a.sharedInterests.length;
+  });
 
-  return relevantLocals.slice(0, 5);
+  return relevantLocals.slice(0, 10);
 }
 
 /**

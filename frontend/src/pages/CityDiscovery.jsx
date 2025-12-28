@@ -559,7 +559,7 @@ function CityDiscovery() {
               ) : locals.length > 0 ? (
                 <>
                   <p className="text-sm text-dark-400 mb-4">
-                    Locals who share your interests and can help you explore
+                    Your connections and potential matches in this city
                   </p>
                   {locals.map((local, idx) => (
                     <div key={idx} className="card p-4">
@@ -568,7 +568,29 @@ function CityDiscovery() {
                           {local.name?.charAt(0) || '?'}
                         </div>
                         <div className="flex-1">
-                          <h3 className="font-semibold">{local.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{local.name}</h3>
+                            {local.connectionStatus === 'friend' && (
+                              <span className="px-2 py-0.5 bg-success-400/20 text-success-400 rounded text-xs">
+                                Friend
+                              </span>
+                            )}
+                            {local.connectionStatus === 'connected' && (
+                              <span className="px-2 py-0.5 bg-primary-400/20 text-primary-400 rounded text-xs">
+                                Connected
+                              </span>
+                            )}
+                            {local.connectionStatus === 'pending' && (
+                              <span className="px-2 py-0.5 bg-accent-400/20 text-accent-400 rounded text-xs">
+                                Pending
+                              </span>
+                            )}
+                            {local.connectionStatus === 'suggested' && (
+                              <span className="px-2 py-0.5 bg-dark-500/50 text-dark-300 rounded text-xs">
+                                Suggested
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {local.sharedInterests?.slice(0, 3).map((interest, iIdx) => (
                               <span
@@ -580,9 +602,15 @@ function CityDiscovery() {
                             ))}
                           </div>
                         </div>
-                        <button className="btn-ghost p-2">
-                          <MessageCircle size={20} className="text-primary-400" />
-                        </button>
+                        {local.canMessage ? (
+                          <button className="btn-ghost p-2" title="Send message">
+                            <MessageCircle size={20} className="text-primary-400" />
+                          </button>
+                        ) : (
+                          <button className="btn-ghost p-2 text-dark-400" title="Connect first to message">
+                            <Users size={20} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -592,7 +620,7 @@ function CityDiscovery() {
                   <Users size={40} className="text-dark-500 mx-auto mb-4" />
                   <p className="text-dark-400">No matching locals found yet</p>
                   <p className="text-sm text-dark-500 mt-2">
-                    Connect with more people to find locals who share your interests
+                    Use the Discover tab to find and connect with locals who share your interests
                   </p>
                 </div>
               )}
