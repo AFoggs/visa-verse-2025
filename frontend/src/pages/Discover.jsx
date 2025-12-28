@@ -299,6 +299,13 @@ function Discover() {
                 </span>
               ))}
             </div>
+
+            {/* AI-generated match summary */}
+            {currentMatch?.aiSummary && (
+              <p className="mt-3 text-sm text-dark-200 italic">
+                {currentMatch.aiSummary}
+              </p>
+            )}
           </div>
 
           {/* Compatibility */}
