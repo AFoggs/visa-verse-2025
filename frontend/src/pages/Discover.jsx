@@ -300,11 +300,13 @@ function Discover() {
               ))}
             </div>
 
-            {/* AI-generated match summary */}
+            {/* AI-generated match summary - scrollable */}
             {currentMatch?.aiSummary && (
-              <p className="mt-3 text-sm text-dark-200 italic">
-                {currentMatch.aiSummary}
-              </p>
+              <div className="mt-3 max-h-20 overflow-y-auto">
+                <p className="text-sm text-dark-200 italic">
+                  {currentMatch.aiSummary}
+                </p>
+              </div>
             )}
           </div>
 
