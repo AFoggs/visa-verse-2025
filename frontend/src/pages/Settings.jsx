@@ -35,12 +35,12 @@ function Settings() {
   const [saving, setSaving] = useState(false);
 
   // Privacy settings state
+  // Hierarchy: everyone > connections (includes friends) > friends only
   const [privacySettings, setPrivacySettings] = useState({
     profileVisibility: 'connections', // 'everyone', 'connections', 'friends'
     photoVisibility: 'friends', // 'everyone', 'connections', 'friends'
     showOnlineStatus: true,
     showLastActive: true,
-    allowMessagesFrom: 'connections', // 'everyone', 'connections', 'friends'
   });
 
   // Notification settings state
@@ -241,6 +241,11 @@ function Settings() {
             </div>
           </div>
 
+          {/* Info note about hierarchy */}
+          <div className={`mb-4 p-3 rounded-lg text-sm ${isDark ? 'bg-dark-700 text-dark-300' : 'bg-gray-100 text-gray-600'}`}>
+            <p>Friends are a subset of your connections. Choosing "Connections" includes friends.</p>
+          </div>
+
           {/* Profile Visibility */}
           <SettingsSection title="Profile Visibility" isDark={isDark}>
             <SettingsRadio
@@ -248,9 +253,9 @@ function Settings() {
               label="Who can see your profile"
               value={privacySettings.profileVisibility}
               options={[
-                { value: 'everyone', label: 'Everyone' },
-                { value: 'connections', label: 'Connections only' },
-                { value: 'friends', label: 'Friends only' },
+                { value: 'everyone', label: 'Everyone', desc: 'All users can view' },
+                { value: 'connections', label: 'Connections', desc: 'Includes friends' },
+                { value: 'friends', label: 'Friends only', desc: 'Most private' },
               ]}
               onChange={(value) => setPrivacySettings(prev => ({ ...prev, profileVisibility: value }))}
               isDark={isDark}
@@ -260,9 +265,9 @@ function Settings() {
               label="Who can see your photo"
               value={privacySettings.photoVisibility}
               options={[
-                { value: 'everyone', label: 'Everyone' },
-                { value: 'connections', label: 'Connections only' },
-                { value: 'friends', label: 'Friends only' },
+                { value: 'everyone', label: 'Everyone', desc: 'All users can view' },
+                { value: 'connections', label: 'Connections', desc: 'Includes friends' },
+                { value: 'friends', label: 'Friends only', desc: 'Most private' },
               ]}
               onChange={(value) => setPrivacySettings(prev => ({ ...prev, photoVisibility: value }))}
               isDark={isDark}
@@ -289,20 +294,17 @@ function Settings() {
             />
           </SettingsSection>
 
-          {/* Messaging */}
+          {/* Messaging Info */}
           <SettingsSection title="Messaging" isDark={isDark}>
-            <SettingsRadio
-              icon={MessageSquare}
-              label="Who can message you"
-              value={privacySettings.allowMessagesFrom}
-              options={[
-                { value: 'everyone', label: 'Everyone' },
-                { value: 'connections', label: 'Connections only' },
-                { value: 'friends', label: 'Friends only' },
-              ]}
-              onChange={(value) => setPrivacySettings(prev => ({ ...prev, allowMessagesFrom: value }))}
-              isDark={isDark}
-            />
+            <div className={`px-4 py-4 ${isDark ? 'text-dark-300' : 'text-gray-600'}`}>
+              <div className="flex items-center gap-3 mb-2">
+                <MessageSquare size={20} className={isDark ? 'text-dark-400' : 'text-gray-400'} />
+                <span className={isDark ? 'text-white' : 'text-gray-900'}>Messaging is connection-based</span>
+              </div>
+              <p className="text-sm ml-8">
+                Only your connections can message you. This ensures all conversations are mutually agreed upon.
+              </p>
+            </div>
           </SettingsSection>
 
           {/* Save Button */}
@@ -541,7 +543,7 @@ function SettingsRadio({ icon: Icon, label, value, options, onChange, isDark }) 
             }`}
           >
             <div
-              className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+              className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                 value === option.value
                   ? 'border-primary-400'
                   : isDark ? 'border-dark-400' : 'border-gray-400'
@@ -551,7 +553,14 @@ function SettingsRadio({ icon: Icon, label, value, options, onChange, isDark }) 
                 <div className="w-2 h-2 rounded-full bg-primary-400" />
               )}
             </div>
-            <span className={isDark ? 'text-white' : 'text-gray-900'}>{option.label}</span>
+            <div className="flex-1">
+              <span className={isDark ? 'text-white' : 'text-gray-900'}>{option.label}</span>
+              {option.desc && (
+                <span className={`ml-2 text-xs ${isDark ? 'text-dark-400' : 'text-gray-400'}`}>
+                  - {option.desc}
+                </span>
+              )}
+            </div>
           </button>
         ))}
       </div>
