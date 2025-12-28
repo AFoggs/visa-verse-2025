@@ -65,59 +65,99 @@ async function generateAIPersonalization(userProfile, cityContent, personality) 
   const country = cityContent.country;
   const interestsList = userProfile.interests.length > 0 ? userProfile.interests.join(', ') : 'general exploration, meeting locals, experiencing culture';
 
-  const prompt = `You're creating a personalized city guide for ${cityName}, ${country}. Use your knowledge of this city to provide specific, real recommendations.
+  // First, search for real city information
+  const searchPrompt = `Search for current information about ${cityName}, ${country} including:
+1. Popular neighborhoods and districts for visitors
+2. Top-rated restaurants and food experiences
+3. Cultural attractions and activities
+4. Hidden gems and local favorites
+5. Practical travel tips
 
-USER PROFILE:
+Focus on finding specific place names, addresses, and links where available.`;
+
+  try {
+    // Use web search to get real, current information
+    const searchResponse = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      tools: [{
+        type: 'web_search',
+        name: 'web_search',
+        max_uses: 5
+      }],
+      messages: [{
+        role: 'user',
+        content: searchPrompt
+      }]
+    });
+
+    // Extract search results
+    let searchResults = '';
+    for (const block of searchResponse.content) {
+      if (block.type === 'text') {
+        searchResults += block.text + '\n';
+      }
+    }
+
+    // Now generate personalized recommendations based on search results
+    const personalizationPrompt = `Based on this research about ${cityName}, ${country}:
+
+${searchResults}
+
+Create a personalized city guide for a traveler with these preferences:
 - Interests: ${interestsList}
 - Activity preference: ${userProfile.activityPreference}
 - Social style: ${userProfile.socialStyle}
 - Travel reason: ${userProfile.travelReason || 'exploring and connecting with locals'}
 - Why here: ${userProfile.whyHere || 'looking for authentic experiences'}
 
-Generate a personalized city discovery experience with REAL places and activities in ${cityName}. Return ONLY valid JSON:
-
+Return ONLY valid JSON with this structure:
 {
-  "customIntro": "A warm, personalized 2-3 sentence intro connecting their interests to ${cityName}'s unique offerings",
+  "customIntro": "A warm 2-3 sentence intro connecting their interests to ${cityName}",
   "recommendedNeighborhoods": [
     {
-      "name": "REAL neighborhood name in ${cityName}",
-      "whyMatch": "why this neighborhood fits their interests",
-      "highlights": ["specific attraction or feature", "another highlight"]
+      "name": "Real neighborhood name",
+      "whyMatch": "Why this fits their interests",
+      "highlights": ["Specific place or attraction", "Another highlight"],
+      "link": "Google Maps or travel guide link if available"
     }
   ],
   "mustDoActivities": [
     {
-      "activity": "specific activity or place name",
-      "whyRelevant": "how it connects to their interests",
-      "category": "food|culture|outdoor|nightlife|social"
+      "activity": "Specific restaurant, attraction, or experience name",
+      "whyRelevant": "How it connects to their interests",
+      "category": "food|culture|outdoor|nightlife|social",
+      "address": "Address if known",
+      "link": "Website or Google Maps link if available"
     }
   ],
   "hiddenGems": [
     {
-      "place": "lesser-known spot name",
-      "description": "what makes it special and worth visiting",
-      "interest": "which interest it matches"
+      "place": "Specific lesser-known spot",
+      "description": "What makes it special",
+      "interest": "Which interest it matches",
+      "link": "Link if available"
     }
   ],
   "practicalTips": [
-    "Practical tip for visiting ${cityName}"
+    "Specific practical tip for ${cityName}"
   ],
-  "localConnectionSuggestions": "What types of locals in ${cityName} would be great to connect with based on their goals"
+  "localConnectionSuggestions": "What types of locals to connect with"
 }
 
-IMPORTANT:
-- Provide 3 neighborhoods, 4 activities, 3 hidden gems, and 3 tips
-- Use REAL places in ${cityName} - not generic placeholders
-- Make recommendations specific to their stated interests: ${interestsList}`;
+REQUIREMENTS:
+- Use REAL place names from the search results
+- Include 3 neighborhoods, 4-5 activities, 3 hidden gems, 3 tips
+- Add links (Google Maps, TripAdvisor, official websites) where possible
+- Be specific - no generic placeholders`;
 
-  try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2500,
-      temperature: 0.7,
+      max_tokens: 3000,
+      temperature: 0.5,
       messages: [{
         role: 'user',
-        content: prompt
+        content: personalizationPrompt
       }]
     });
 
@@ -126,8 +166,52 @@ IMPORTANT:
 
     return JSON.parse(content);
   } catch (error) {
-    console.error('AI personalization failed:', error);
-    // Return fallback content
+    console.error('AI personalization with search failed:', error);
+    // Try without web search as fallback
+    return generateAIFallback(userProfile, cityContent);
+  }
+}
+
+async function generateAIFallback(userProfile, cityContent) {
+  const cityName = cityContent.cityName;
+  const country = cityContent.country;
+  const interestsList = userProfile.interests.length > 0 ? userProfile.interests.join(', ') : 'general exploration, meeting locals, experiencing culture';
+
+  const prompt = `You're creating a personalized city guide for ${cityName}, ${country}. Use your knowledge to provide SPECIFIC, REAL recommendations.
+
+USER: Interests in ${interestsList}, ${userProfile.activityPreference} activities, traveling for ${userProfile.travelReason || 'exploration'}.
+
+Return ONLY valid JSON:
+{
+  "customIntro": "2-3 sentence personalized intro",
+  "recommendedNeighborhoods": [
+    {"name": "Real neighborhood", "whyMatch": "Why it fits", "highlights": ["Specific thing 1", "Thing 2"], "link": "https://maps.google.com/?q=NEIGHBORHOOD+${encodeURIComponent(cityName)}"}
+  ],
+  "mustDoActivities": [
+    {"activity": "Real place/activity", "whyRelevant": "Connection to interests", "category": "food|culture|outdoor|nightlife|social", "link": "Search link"}
+  ],
+  "hiddenGems": [
+    {"place": "Real lesser-known spot", "description": "Why special", "interest": "matching interest"}
+  ],
+  "practicalTips": ["Specific tip 1", "Tip 2", "Tip 3"],
+  "localConnectionSuggestions": "Types of locals to connect with"
+}
+
+Provide 3 neighborhoods, 4 activities, 3 gems, 3 tips. Use REAL places in ${cityName}.`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2500,
+      temperature: 0.7,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    let content = response.content[0].text.trim();
+    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('AI fallback failed:', error);
     return generateFallbackContent(userProfile, cityContent);
   }
 }

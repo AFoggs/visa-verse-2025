@@ -22,6 +22,7 @@ import {
   X,
   Check,
   AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { cityDiscoveryApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -426,11 +427,24 @@ function CityDiscovery() {
                 cityContent.recommendedNeighborhoods.map((area, idx) => (
                   <div key={idx} className="card p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-semibold flex items-center gap-2">
-                          <Home size={16} className="text-primary-400" />
-                          {area.name}
-                        </h3>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold flex items-center gap-2">
+                            <Home size={16} className="text-primary-400" />
+                            {area.name}
+                          </h3>
+                          {area.link && (
+                            <a
+                              href={area.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 hover:bg-dark-600 rounded transition-colors"
+                              title="View on map"
+                            >
+                              <ExternalLink size={14} className="text-primary-400" />
+                            </a>
+                          )}
+                        </div>
                         <p className="text-sm text-accent-400 mt-1">{area.whyMatch}</p>
                       </div>
                       <button
@@ -479,9 +493,28 @@ function CityDiscovery() {
                           <div className="w-10 h-10 rounded-lg bg-primary-400/20 flex items-center justify-center flex-shrink-0">
                             <CategoryIcon size={20} className="text-primary-400" />
                           </div>
-                          <div>
-                            <h3 className="font-semibold">{activity.activity}</h3>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold">{activity.activity}</h3>
+                              {activity.link && (
+                                <a
+                                  href={activity.link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1 hover:bg-dark-600 rounded transition-colors"
+                                  title="View details"
+                                >
+                                  <ExternalLink size={14} className="text-primary-400" />
+                                </a>
+                              )}
+                            </div>
                             <p className="text-sm text-dark-300 mt-1">{activity.whyRelevant}</p>
+                            {activity.address && (
+                              <p className="text-xs text-dark-400 mt-1 flex items-center gap-1">
+                                <MapPin size={12} />
+                                {activity.address}
+                              </p>
+                            )}
                             <span className="inline-block px-2 py-0.5 bg-dark-600 rounded text-xs text-dark-400 mt-2 capitalize">
                               {activity.category}
                             </span>
@@ -516,11 +549,24 @@ function CityDiscovery() {
                 cityContent.hiddenGems.map((gem, idx) => (
                   <div key={idx} className="card p-4 border-accent-400/20">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold flex items-center gap-2">
-                          <Sparkles size={16} className="text-accent-400" />
-                          {gem.place}
-                        </h3>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold flex items-center gap-2">
+                            <Sparkles size={16} className="text-accent-400" />
+                            {gem.place}
+                          </h3>
+                          {gem.link && (
+                            <a
+                              href={gem.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1 hover:bg-dark-600 rounded transition-colors"
+                              title="View details"
+                            >
+                              <ExternalLink size={14} className="text-accent-400" />
+                            </a>
+                          )}
+                        </div>
                         <p className="text-sm text-dark-200 mt-2">{gem.description}</p>
                         {gem.interest && (
                           <span className="inline-block px-2 py-0.5 bg-accent-400/20 text-accent-400 rounded text-xs mt-2">
