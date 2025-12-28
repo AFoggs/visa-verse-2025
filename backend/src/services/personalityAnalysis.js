@@ -21,7 +21,6 @@ function getClient() {
  */
 export async function extractPersonalityProfile(conversationHistory, currentProfile = null) {
   if (conversationHistory.length < 8) {
-    console.log('Not enough conversation for personality analysis');
     return currentProfile;
   }
 
@@ -89,8 +88,8 @@ Only include scores you're confident about. Return null for unclear traits.`;
 
     // Merge with existing profile if available
     return mergePersonalityData(currentProfile, parsed);
-  } catch (error) {
-    console.error('Personality analysis failed:', error);
+  } catch {
+    // Silently return existing profile on failure
     return currentProfile;
   }
 }

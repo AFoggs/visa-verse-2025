@@ -60,11 +60,9 @@ router.post('/chat', async (req, res) => {
       }
     }
 
-    // Update personality profile for predictive matching every 10 messages
+    // Update personality profile for predictive matching every 10 messages (silent background task)
     if (trimmedMessages.length % 10 === 0 && trimmedMessages.length >= 8) {
-      console.log('Running personality profile analysis for predictive matching...');
-
-      // Run in background to not block response
+      // Run silently in background - no user notification
       extractPersonalityProfile(
         trimmedMessages,
         userProfile.companionData?.personalityProfile
@@ -73,10 +71,9 @@ router.post('/chat', async (req, res) => {
           db.collection('users').doc(req.user.uid).update({
             'companionData.personalityProfile': profile,
           });
-          console.log('Personality profile updated for predictive matching');
         }
-      }).catch(err => {
-        console.error('Personality profile analysis failed:', err);
+      }).catch(() => {
+        // Silently fail - this is a background enhancement
       });
     }
 
