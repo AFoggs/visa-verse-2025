@@ -1,4 +1,5 @@
 import { getDb } from '../config/firebase.js';
+import { predictConversationQuality } from './personalityAnalysis.js';
 
 // Helper functions for mobility matching
 function getArea(user) {
@@ -131,22 +132,25 @@ export function calculateCompatibility(user1, user2) {
     lifeStage: calculateLifeStageScore(user1, user2),
     cultural: calculateCulturalBridgeScore(user1, user2),
     expertise: calculateExpertiseScore(user1, user2),
+    // Predictive conversation quality score
+    conversationQuality: calculateConversationQualityScore(user1, user2),
   };
 
   // Weighted score with new dimensions
   const weightedScore =
-    scores.mobility * 0.15 +      // Mobility matching (15%)
-    scores.interest * 0.18 +      // Shared interests (18%)
-    scores.style * 0.08 +         // Personality style (8%)
-    scores.value * 0.10 +         // Shared values (10%)
-    scores.goal * 0.05 +          // Goal alignment (5%)
-    scores.language * 0.10 +      // Language compatibility (10%)
-    scores.activity * 0.08 +      // Activity alignment (8%)
-    scores.schedule * 0.06 +      // Schedule compatibility (6%)
-    scores.social * 0.06 +        // Social style (6%)
-    scores.lifeStage * 0.05 +     // Life stage (5%)
-    scores.cultural * 0.05 +      // Cultural bridge (5%)
-    scores.expertise * 0.04;      // Expertise match (4%)
+    scores.mobility * 0.15 +            // Mobility matching (15%)
+    scores.interest * 0.16 +            // Shared interests (16%) - reduced from 18%
+    scores.style * 0.07 +               // Personality style (7%) - reduced from 8%
+    scores.value * 0.09 +               // Shared values (9%) - reduced from 10%
+    scores.goal * 0.05 +                // Goal alignment (5%)
+    scores.language * 0.09 +            // Language compatibility (9%) - reduced from 10%
+    scores.activity * 0.07 +            // Activity alignment (7%) - reduced from 8%
+    scores.schedule * 0.05 +            // Schedule compatibility (5%) - reduced from 6%
+    scores.social * 0.05 +              // Social style (5%) - reduced from 6%
+    scores.lifeStage * 0.05 +           // Life stage (5%)
+    scores.cultural * 0.05 +            // Cultural bridge (5%)
+    scores.expertise * 0.04 +           // Expertise match (4%)
+    scores.conversationQuality * 0.08;  // Predicted conversation quality (8%) - NEW
 
   // Add shared interests to reasons if we have room
   const sharedInterests = getSharedInterests(user1, user2);
@@ -619,6 +623,14 @@ function calculateExpertiseScore(user1, user2) {
   }
 
   return Math.min(score, 100);
+}
+
+// NEW: Predicted conversation quality based on personality profiles
+function calculateConversationQualityScore(user1, user2) {
+  const personality1 = user1.companionData?.personalityProfile;
+  const personality2 = user2.companionData?.personalityProfile;
+
+  return predictConversationQuality(personality1, personality2);
 }
 
 function getSharedInterests(user1, user2) {

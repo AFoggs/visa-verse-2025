@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../config/firebase.js';
 import { generateCompanionResponse, analyzePersonality } from '../services/claude.js';
+import { extractPersonalityProfile } from '../services/personalityAnalysis.js';
 
 const router = Router();
 
@@ -57,6 +58,26 @@ router.post('/chat', async (req, res) => {
           'companionData.personalityFingerprint': personality,
         });
       }
+    }
+
+    // Update personality profile for predictive matching every 10 messages
+    if (trimmedMessages.length % 10 === 0 && trimmedMessages.length >= 8) {
+      console.log('Running personality profile analysis for predictive matching...');
+
+      // Run in background to not block response
+      extractPersonalityProfile(
+        trimmedMessages,
+        userProfile.companionData?.personalityProfile
+      ).then(profile => {
+        if (profile) {
+          db.collection('users').doc(req.user.uid).update({
+            'companionData.personalityProfile': profile,
+          });
+          console.log('Personality profile updated for predictive matching');
+        }
+      }).catch(err => {
+        console.error('Personality profile analysis failed:', err);
+      });
     }
 
     res.json({
