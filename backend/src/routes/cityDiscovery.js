@@ -10,6 +10,58 @@ import { getDb } from '../config/firebase.js';
 const router = Router();
 
 /**
+ * GET /api/city-discovery/cities/available
+ * Get list of available cities
+ * NOTE: This must come BEFORE /:cityId routes to avoid matching "cities" as a cityId
+ */
+router.get('/cities/available', async (req, res) => {
+  try {
+    const db = getDb();
+    const citiesQuery = await db.collection('cityContent').get();
+
+    const cities = [];
+    citiesQuery.forEach(doc => {
+      const data = doc.data();
+      cities.push({
+        cityId: doc.id,
+        cityName: data.cityName,
+        country: data.country,
+      });
+    });
+
+    res.json({ cities });
+  } catch (error) {
+    console.error('Get cities error:', error);
+    res.status(500).json({ error: 'Failed to get cities' });
+  }
+});
+
+/**
+ * POST /api/city-discovery/cities/create
+ * Create a new city (admin or auto-create)
+ * NOTE: This must come BEFORE /:cityId routes
+ */
+router.post('/cities/create', async (req, res) => {
+  try {
+    const { cityName, country } = req.body;
+
+    if (!cityName || !country) {
+      return res.status(400).json({ error: 'City name and country are required' });
+    }
+
+    // Create city ID from name and country
+    const cityId = `${cityName.toLowerCase().replace(/\s+/g, '-')}-${country.toLowerCase().replace(/\s+/g, '-')}`;
+
+    const cityContent = await getOrCreateCityContent(cityId, cityName, country);
+
+    res.json({ cityId, cityContent });
+  } catch (error) {
+    console.error('Create city error:', error);
+    res.status(500).json({ error: 'Failed to create city' });
+  }
+});
+
+/**
  * GET /api/city-discovery/:cityId
  * Get personalized city content for user
  */
@@ -218,56 +270,6 @@ router.get('/:cityId/notes', async (req, res) => {
   } catch (error) {
     console.error('Get notes error:', error);
     res.status(500).json({ error: 'Failed to get notes' });
-  }
-});
-
-/**
- * GET /api/city-discovery/cities/available
- * Get list of available cities
- */
-router.get('/cities/available', async (req, res) => {
-  try {
-    const db = getDb();
-    const citiesQuery = await db.collection('cityContent').get();
-
-    const cities = [];
-    citiesQuery.forEach(doc => {
-      const data = doc.data();
-      cities.push({
-        cityId: doc.id,
-        cityName: data.cityName,
-        country: data.country,
-      });
-    });
-
-    res.json({ cities });
-  } catch (error) {
-    console.error('Get cities error:', error);
-    res.status(500).json({ error: 'Failed to get cities' });
-  }
-});
-
-/**
- * POST /api/city-discovery/cities/create
- * Create a new city (admin or auto-create)
- */
-router.post('/cities/create', async (req, res) => {
-  try {
-    const { cityName, country } = req.body;
-
-    if (!cityName || !country) {
-      return res.status(400).json({ error: 'City name and country are required' });
-    }
-
-    // Create city ID from name and country
-    const cityId = `${cityName.toLowerCase().replace(/\s+/g, '-')}-${country.toLowerCase().replace(/\s+/g, '-')}`;
-
-    const cityContent = await getOrCreateCityContent(cityId, cityName, country);
-
-    res.json({ cityId, cityContent });
-  } catch (error) {
-    console.error('Create city error:', error);
-    res.status(500).json({ error: 'Failed to create city' });
   }
 });
 

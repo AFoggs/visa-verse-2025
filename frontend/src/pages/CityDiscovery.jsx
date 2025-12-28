@@ -59,10 +59,12 @@ function CityDiscovery() {
   const [notesLoading, setNotesLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Load available cities on mount
+  // Load available cities when userProfile is available
   useEffect(() => {
-    loadAvailableCities();
-  }, []);
+    if (userProfile) {
+      loadAvailableCities();
+    }
+  }, [userProfile]);
 
   // Auto-select city based on user's mobility
   useEffect(() => {
@@ -99,10 +101,36 @@ function CityDiscovery() {
   const loadAvailableCities = async () => {
     try {
       const data = await cityDiscoveryApi.getAvailableCities();
-      setAvailableCities(data.cities || []);
+      let cities = data.cities || [];
+
+      // If no cities available, try to create one based on user's location
+      if (cities.length === 0 && userProfile?.mobility?.area) {
+        const userCity = userProfile.mobility.area.city;
+        const userCountry = userProfile.mobility.area.country;
+
+        if (userCity && userCountry) {
+          try {
+            const newCity = await cityDiscoveryApi.createCity(userCity, userCountry);
+            cities = [{
+              cityId: newCity.cityId,
+              cityName: userCity,
+              country: userCountry,
+            }];
+          } catch (createErr) {
+            console.error('Failed to create city:', createErr);
+          }
+        }
+      }
+
+      setAvailableCities(cities);
+      // If still no cities available, stop loading
+      if (cities.length === 0) {
+        setLoading(false);
+      }
     } catch (err) {
       console.error('Failed to load cities:', err);
       setError('Failed to load available cities');
+      setLoading(false);
     }
   };
 
