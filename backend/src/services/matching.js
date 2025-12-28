@@ -1,5 +1,50 @@
 import { getDb } from '../config/firebase.js';
 import { predictConversationQuality } from './personalityAnalysis.js';
+import { getAlgorithmWeights, recordMatchOutcome } from './matchOutcomeLearning.js';
+
+// Default weights (used if dynamic weights not available)
+const DEFAULT_WEIGHTS = {
+  mobility: 0.14,
+  interest: 0.15,
+  style: 0.06,
+  value: 0.08,
+  goal: 0.05,
+  language: 0.08,
+  activity: 0.06,
+  schedule: 0.05,
+  social: 0.05,
+  lifeStage: 0.05,
+  cultural: 0.05,
+  expertise: 0.04,
+  conversationQuality: 0.08,
+  timeline: 0.06,
+};
+
+// Cached weights for synchronous access
+let cachedWeights = DEFAULT_WEIGHTS;
+
+/**
+ * Initialize/refresh algorithm weights from database
+ * Call this on server start and periodically
+ */
+export async function refreshAlgorithmWeights() {
+  try {
+    const weights = await getAlgorithmWeights();
+    cachedWeights = weights;
+    console.log('Algorithm weights refreshed');
+    return weights;
+  } catch (error) {
+    console.error('Failed to refresh algorithm weights:', error);
+    return cachedWeights;
+  }
+}
+
+/**
+ * Get current cached weights (synchronous)
+ */
+export function getCurrentWeights() {
+  return cachedWeights;
+}
 
 // Helper functions for mobility matching
 function getArea(user) {
@@ -138,22 +183,25 @@ export function calculateCompatibility(user1, user2) {
     timeline: calculateTimelineScore(user1, user2),
   };
 
-  // Weighted score with new dimensions
+  // Use learned weights (or defaults if not available)
+  const weights = cachedWeights;
+
+  // Weighted score with dynamic weights from learning algorithm
   const weightedScore =
-    scores.mobility * 0.14 +            // Mobility matching (14%) - reduced from 15%
-    scores.interest * 0.15 +            // Shared interests (15%) - reduced from 16%
-    scores.style * 0.06 +               // Personality style (6%) - reduced from 7%
-    scores.value * 0.08 +               // Shared values (8%) - reduced from 9%
-    scores.goal * 0.05 +                // Goal alignment (5%)
-    scores.language * 0.08 +            // Language compatibility (8%) - reduced from 9%
-    scores.activity * 0.06 +            // Activity alignment (6%) - reduced from 7%
-    scores.schedule * 0.05 +            // Schedule compatibility (5%)
-    scores.social * 0.05 +              // Social style (5%)
-    scores.lifeStage * 0.05 +           // Life stage (5%)
-    scores.cultural * 0.05 +            // Cultural bridge (5%)
-    scores.expertise * 0.04 +           // Expertise match (4%)
-    scores.conversationQuality * 0.08 + // Predicted conversation quality (8%)
-    scores.timeline * 0.06;             // Timeline compatibility (6%) - NEW
+    scores.mobility * (weights.mobility || 0.14) +
+    scores.interest * (weights.interest || 0.15) +
+    scores.style * (weights.style || 0.06) +
+    scores.value * (weights.value || 0.08) +
+    scores.goal * (weights.goal || 0.05) +
+    scores.language * (weights.language || 0.08) +
+    scores.activity * (weights.activity || 0.06) +
+    scores.schedule * (weights.schedule || 0.05) +
+    scores.social * (weights.social || 0.05) +
+    scores.lifeStage * (weights.lifeStage || 0.05) +
+    scores.cultural * (weights.cultural || 0.05) +
+    scores.expertise * (weights.expertise || 0.04) +
+    scores.conversationQuality * (weights.conversationQuality || 0.08) +
+    scores.timeline * (weights.timeline || 0.06);
 
   // Add shared interests to reasons if we have room
   const sharedInterests = getSharedInterests(user1, user2);
@@ -865,4 +913,6 @@ export async function getSuggestedMatches(userId, limit = 10) {
 export default {
   calculateCompatibility,
   getSuggestedMatches,
+  refreshAlgorithmWeights,
+  getCurrentWeights,
 };

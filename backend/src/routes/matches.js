@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getDb } from '../config/firebase.js';
-import { getSuggestedMatches, calculateCompatibility } from '../services/matching.js';
+import { getSuggestedMatches, calculateCompatibility, getCurrentWeights } from '../services/matching.js';
+import { updateMatchFeedback, updateMatchMetrics, recordMatchOutcome } from '../services/matchOutcomeLearning.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -238,6 +239,15 @@ router.post('/connect', async (req, res) => {
     };
 
     await db.collection('matches').doc(matchId).set(matchData);
+
+    // Record match outcome for learning algorithm
+    recordMatchOutcome(
+      matchId,
+      req.user.uid,
+      userId,
+      compatibility.score,
+      compatibility.breakdown
+    ).catch(err => console.error('Failed to record match outcome:', err));
 
     console.log('Connection request sent:', { matchId, from: req.user.uid, to: userId });
     res.json({
@@ -617,6 +627,91 @@ router.post('/:matchId/remove', async (req, res) => {
   } catch (error) {
     console.error('Remove connection error:', error);
     res.status(500).json({ error: 'Failed to remove connection' });
+  }
+});
+
+// Submit detailed match feedback for learning algorithm
+router.post('/:matchId/feedback', async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const { rating, whatWorked, whatDidnt } = req.body;
+
+    if (!rating || rating < 0 || rating > 100) {
+      return res.status(400).json({ error: 'Rating must be between 0 and 100' });
+    }
+
+    const db = getDb();
+    const matchDoc = await db.collection('matches').doc(matchId).get();
+
+    if (!matchDoc.exists) {
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    const matchData = matchDoc.data();
+
+    // Verify user is part of this match
+    if (matchData.user1Id !== req.user.uid && matchData.user2Id !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Update match feedback for learning
+    const success = await updateMatchFeedback(matchId, req.user.uid, {
+      rating,
+      whatWorked: whatWorked || [],
+      whatDidnt: whatDidnt || [],
+    });
+
+    if (success) {
+      res.json({ success: true, message: 'Feedback submitted successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to submit feedback' });
+    }
+  } catch (error) {
+    console.error('Submit feedback error:', error);
+    res.status(500).json({ error: 'Failed to submit feedback' });
+  }
+});
+
+// Update match metrics (conversation count, last interaction)
+router.post('/:matchId/metrics', async (req, res) => {
+  try {
+    const { matchId } = req.params;
+    const { conversationCount, becameFriends } = req.body;
+
+    const db = getDb();
+    const matchDoc = await db.collection('matches').doc(matchId).get();
+
+    if (!matchDoc.exists) {
+      return res.status(404).json({ error: 'Match not found' });
+    }
+
+    const matchData = matchDoc.data();
+
+    // Verify user is part of this match
+    if (matchData.user1Id !== req.user.uid && matchData.user2Id !== req.user.uid) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    await updateMatchMetrics(matchId, {
+      conversationCount: conversationCount || 0,
+      becameFriends: becameFriends || false,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update metrics error:', error);
+    res.status(500).json({ error: 'Failed to update metrics' });
+  }
+});
+
+// Get current algorithm weights (for debugging/transparency)
+router.get('/algorithm/weights', async (req, res) => {
+  try {
+    const weights = getCurrentWeights();
+    res.json({ weights });
+  } catch (error) {
+    console.error('Get weights error:', error);
+    res.status(500).json({ error: 'Failed to get weights' });
   }
 });
 
