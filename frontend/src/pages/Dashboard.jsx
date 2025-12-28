@@ -81,7 +81,7 @@ function Dashboard() {
 
         {/* Destination Badge */}
         {mobility && (
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-dark-700 rounded-xl">
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-dark-700">
             {isLocal ? (
               <Home size={18} className="text-primary-400" />
             ) : (
@@ -112,7 +112,7 @@ function Dashboard() {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold mb-1">AI Companion</h3>
-              <p className="text-dark-300 text-sm">Chat to build your profile and get matched</p>
+              <p className="text-sm text-dark-300">Chat to build your profile and get matched</p>
             </div>
             <ChevronRight className="text-dark-400" size={24} />
           </Link>

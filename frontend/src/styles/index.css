@@ -17,7 +17,7 @@
   /* Light mode */
   html.light body,
   body.light {
-    @apply bg-gray-100 text-gray-900;
+    @apply bg-gray-50 text-gray-900;
   }
 
   /* Custom scrollbar - Dark mode */
@@ -89,7 +89,7 @@
 
   /* Light mode ghost button */
   html.light .btn-ghost {
-    @apply hover:bg-gray-200 active:bg-gray-300;
+    @apply hover:bg-gray-200 active:bg-gray-300 text-gray-700;
   }
 
   .input {
@@ -111,7 +111,7 @@
 
   /* Light mode card */
   html.light .card {
-    @apply bg-white border-gray-200 shadow-md;
+    @apply bg-white border-gray-200 shadow-md text-gray-900;
   }
 
   .card-hover {
@@ -145,6 +145,51 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
   }
+
+  /* Theme-aware text utilities */
+  .text-muted {
+    @apply text-dark-300;
+  }
+  html.light .text-muted {
+    @apply text-gray-500;
+  }
+
+  .text-subtle {
+    @apply text-dark-400;
+  }
+  html.light .text-subtle {
+    @apply text-gray-400;
+  }
+
+  /* Theme-aware background utilities */
+  .bg-surface {
+    @apply bg-dark-700;
+  }
+  html.light .bg-surface {
+    @apply bg-white;
+  }
+
+  .bg-surface-alt {
+    @apply bg-dark-600;
+  }
+  html.light .bg-surface-alt {
+    @apply bg-gray-100;
+  }
+
+  .bg-elevated {
+    @apply bg-dark-700/50;
+  }
+  html.light .bg-elevated {
+    @apply bg-white/80;
+  }
+
+  /* Theme-aware border utilities */
+  .border-subtle {
+    @apply border-dark-600;
+  }
+  html.light .border-subtle {
+    @apply border-gray-200;
+  }
 }
 
 @layer utilities {
@@ -168,4 +213,48 @@
       transform: translateY(-10px);
     }
   }
+}
+
+/* Global light mode overrides for common dark-mode specific classes */
+html.light .text-dark-200 { @apply text-gray-600; }
+html.light .text-dark-300 { @apply text-gray-500; }
+html.light .text-dark-400 { @apply text-gray-400; }
+html.light .text-dark-500 { @apply text-gray-500; }
+
+html.light .bg-dark-600 { @apply bg-gray-100; }
+html.light .bg-dark-700 { @apply bg-white; }
+html.light .bg-dark-700\/30 { background-color: rgba(255, 255, 255, 0.3); }
+html.light .bg-dark-700\/50 { background-color: rgba(255, 255, 255, 0.5); }
+html.light .bg-dark-800 { @apply bg-gray-50; }
+
+html.light .border-dark-500 { @apply border-gray-300; }
+html.light .border-dark-600 { @apply border-gray-200; }
+
+html.light .divide-dark-600 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(229 231 235); /* gray-200 */
+}
+
+html.light .hover\:bg-dark-500:hover { @apply bg-gray-200; }
+html.light .hover\:bg-dark-600:hover { @apply bg-gray-100; }
+html.light .hover\:bg-dark-700:hover { @apply bg-gray-50; }
+
+html.light .hover\:text-white:hover { @apply text-gray-900; }
+
+/* Ensure text remains readable in light mode */
+html.light h1, html.light h2, html.light h3, html.light h4, html.light h5, html.light h6 {
+  @apply text-gray-900;
+}
+
+html.light p {
+  @apply text-gray-700;
+}
+
+/* Chat bubbles in light mode */
+html.light .bg-dark-700.border.border-dark-600 {
+  @apply bg-gray-100 border-gray-200 text-gray-900;
+}
+
+/* Fix message timestamp color in light mode */
+html.light .text-primary-200 {
+  @apply text-primary-600;
 }
