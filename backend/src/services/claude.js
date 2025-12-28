@@ -588,6 +588,77 @@ export function aggregateSignals(existingFingerprint, newSignals) {
   return fingerprint;
 }
 
+/**
+ * Generate an AI summary explaining why two users would be a good match.
+ * Only uses publicly visible information - no private details.
+ */
+export async function generateMatchSummary(currentUser, otherUser, compatibility) {
+  try {
+    // Build context from only PUBLIC information
+    const currentName = currentUser.profile?.name || 'You';
+    const otherName = otherUser.profile?.name || 'This person';
+
+    // Mobility context (public)
+    const currentMode = currentUser.mobility?.mode;
+    const otherMode = otherUser.mobility?.mode;
+    const currentArea = currentUser.mobility?.area;
+    const otherArea = otherUser.mobility?.area;
+
+    let mobilityContext = '';
+    if (currentMode && otherMode) {
+      if (currentMode === 'TRAVELER' && otherMode === 'LOCAL') {
+        mobilityContext = `You're traveling to ${currentArea?.city || currentArea?.country || 'a new place'}, and ${otherName} is a local there.`;
+      } else if (currentMode === 'LOCAL' && otherMode === 'TRAVELER') {
+        mobilityContext = `You're a local, and ${otherName} is coming to ${otherArea?.city || otherArea?.country || 'your area'}.`;
+      } else if (currentMode === 'TRAVELER' && otherMode === 'TRAVELER') {
+        mobilityContext = `You're both travelers heading to ${currentArea?.city || currentArea?.country || 'the same destination'}.`;
+      } else {
+        mobilityContext = `You're both locals in ${currentArea?.city || currentArea?.country || 'the same area'}.`;
+      }
+    }
+
+    // Shared interests (public)
+    const sharedInterests = compatibility.sharedInterests || [];
+
+    // Other user's public interests (that aren't shared)
+    const otherInterests = (otherUser.profile?.interests || [])
+      .filter(i => !sharedInterests.includes(i))
+      .slice(0, 3);
+
+    // Build the prompt with ONLY public info
+    const prompt = `Write a brief, warm 1-2 sentence summary explaining why these two people might connect well on 3Degrees (a platform connecting locals and travelers).
+
+Context:
+${mobilityContext}
+${sharedInterests.length > 0 ? `They share interests in: ${sharedInterests.join(', ')}` : ''}
+${otherInterests.length > 0 ? `${otherName} is also into: ${otherInterests.join(', ')}` : ''}
+Compatibility score: ${compatibility.score}/100
+
+Rules:
+- Be warm and encouraging, but not over-the-top
+- Focus on what they have in common or how they could help each other
+- Keep it concise (1-2 sentences max)
+- Don't reveal any private information
+- Don't use emojis
+- Write from a third-person perspective about the match
+
+Return ONLY the summary text, nothing else.`;
+
+    const response = await getClient().messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 150,
+      temperature: 0.7,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const summary = response.content[0]?.text?.trim() || null;
+    return summary;
+  } catch (error) {
+    console.error('Match summary generation error:', error);
+    return null;
+  }
+}
+
 export default {
   generateCompanionResponse,
   generateIcebreakers,
@@ -595,4 +666,5 @@ export default {
   generateTopicPrompt,
   analyzePersonality,
   aggregateSignals,
+  generateMatchSummary,
 };
