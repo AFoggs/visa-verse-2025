@@ -1,7 +1,7 @@
 import { getDb } from '../config/firebase.js';
 import { predictConversationQuality } from './personalityAnalysis.js';
 import { getAlgorithmWeights, recordMatchOutcome } from './matchOutcomeLearning.js';
-import { generateMatchSummary } from './claude.js';
+import { getCachedSummaries, preGenerateSummariesForUser } from './matchSummaryCache.js';
 
 // Default weights (used if dynamic weights not available)
 const DEFAULT_WEIGHTS = {
@@ -906,40 +906,25 @@ export async function getSuggestedMatches(userId, limit = 10) {
     // Get top matches for limit
     const topMatches = potentialMatches.slice(0, limit);
 
-    // Generate AI summaries for top matches (in parallel for speed)
-    console.log('Generating AI summaries for top matches...');
-    const summaryPromises = topMatches.map(async (match) => {
-      try {
-        // Rebuild minimal user objects for summary generation
-        const otherUser = {
-          profile: {
-            name: match.name,
-            interests: match.interests,
-          },
-          mobility: match.mobility,
-        };
+    // Get cached AI summaries (pre-generated daily, not on-demand)
+    const matchUserIds = topMatches.map(m => m.userId);
+    const cachedSummaries = await getCachedSummaries(userId, matchUserIds);
 
-        const compatibility = {
-          score: match.compatibilityScore,
-          sharedInterests: match.sharedInterests,
-        };
-
-        const summary = await generateMatchSummary(currentUser, otherUser, compatibility);
-        return { userId: match.userId, summary };
-      } catch (error) {
-        console.error(`Failed to generate summary for ${match.userId}:`, error);
-        return { userId: match.userId, summary: null };
-      }
-    });
-
-    const summaries = await Promise.all(summaryPromises);
-    const summaryMap = new Map(summaries.map(s => [s.userId, s.summary]));
-
-    // Add summaries to matches
+    // Add cached summaries to matches
     const matchesWithSummaries = topMatches.map(match => ({
       ...match,
-      aiSummary: summaryMap.get(match.userId) || null,
+      aiSummary: cachedSummaries.get(match.userId) || null,
     }));
+
+    // Trigger background pre-generation if many summaries are missing
+    const missingSummaries = matchesWithSummaries.filter(m => !m.aiSummary).length;
+    if (missingSummaries > topMatches.length / 2) {
+      // More than half missing - trigger background generation
+      console.log(`${missingSummaries} summaries missing, triggering background generation...`);
+      preGenerateSummariesForUser(userId, limit).catch(err => {
+        console.error('Background summary generation failed:', err);
+      });
+    }
 
     console.log('Returning potential matches:', matchesWithSummaries.length);
     return matchesWithSummaries;

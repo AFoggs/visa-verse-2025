@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../config/firebase.js';
 import { getSuggestedMatches, calculateCompatibility, getCurrentWeights } from '../services/matching.js';
 import { updateMatchFeedback, updateMatchMetrics, recordMatchOutcome } from '../services/matchOutcomeLearning.js';
+import { preGenerateSummariesForUser, preGenerateAllSummaries, cleanupExpiredCache } from '../services/matchSummaryCache.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -712,6 +713,62 @@ router.get('/algorithm/weights', async (req, res) => {
   } catch (error) {
     console.error('Get weights error:', error);
     res.status(500).json({ error: 'Failed to get weights' });
+  }
+});
+
+// Pre-generate AI summaries for current user's top matches
+router.post('/summaries/generate', async (req, res) => {
+  try {
+    const { limit = 10 } = req.body;
+    const result = await preGenerateSummariesForUser(req.user.uid, limit);
+    res.json({
+      success: true,
+      message: `Generated ${result.generated} summaries, ${result.skipped} already cached`,
+      ...result,
+    });
+  } catch (error) {
+    console.error('Generate summaries error:', error);
+    res.status(500).json({ error: 'Failed to generate summaries' });
+  }
+});
+
+// Admin endpoint: Pre-generate summaries for all users (daily job)
+// This should be called by a cron job or scheduled task
+router.post('/summaries/generate-all', async (req, res) => {
+  try {
+    // Optional: Add admin check here
+    const { limit = 10 } = req.body;
+
+    // Run in background to not timeout the request
+    res.json({
+      success: true,
+      message: 'Summary generation started in background',
+    });
+
+    // Execute after response is sent
+    preGenerateAllSummaries(limit).then(result => {
+      console.log('Batch summary generation complete:', result);
+    }).catch(err => {
+      console.error('Batch summary generation failed:', err);
+    });
+  } catch (error) {
+    console.error('Generate all summaries error:', error);
+    res.status(500).json({ error: 'Failed to start summary generation' });
+  }
+});
+
+// Admin endpoint: Clean up expired cache entries
+router.post('/summaries/cleanup', async (req, res) => {
+  try {
+    const result = await cleanupExpiredCache();
+    res.json({
+      success: true,
+      message: `Cleaned up ${result.deleted || 0} expired entries`,
+      ...result,
+    });
+  } catch (error) {
+    console.error('Cleanup cache error:', error);
+    res.status(500).json({ error: 'Failed to cleanup cache' });
   }
 });
 
