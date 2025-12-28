@@ -1,9 +1,20 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getDb } from '../config/firebase.js';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Lazy initialization of Anthropic client
+let anthropicClient = null;
+
+function getAnthropicClient() {
+  if (!anthropicClient) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY environment variable is not set');
+    }
+    anthropicClient = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+  }
+  return anthropicClient;
+}
 
 /**
  * Generate personalized city content based on user's profile and AI companion insights
@@ -77,6 +88,7 @@ Focus on finding specific place names, addresses, and links where available.`;
 
   try {
     // Use web search to get real, current information
+    const anthropic = getAnthropicClient();
     const searchResponse = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4000,
@@ -200,6 +212,7 @@ Return ONLY valid JSON:
 Provide 3 neighborhoods, 4 activities, 3 gems, 3 tips. Use REAL places in ${cityName}.`;
 
   try {
+    const anthropic = getAnthropicClient();
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2500,
