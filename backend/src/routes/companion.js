@@ -6,9 +6,16 @@ import { updateCityPersonalization } from '../services/cityPersonalization.js';
 
 const router = Router();
 
+// Debug: Log all requests to companion routes
+router.use((req, res, next) => {
+  console.log(`[Companion] ${req.method} ${req.path} - User: ${req.user?.uid || 'unknown'}`);
+  next();
+});
+
 // Chat with companion
 router.post('/chat', async (req, res) => {
   try {
+    console.log('[Companion] Chat request received');
     const { message } = req.body;
 
     if (!message || typeof message !== 'string') {
@@ -87,8 +94,8 @@ router.post('/chat', async (req, res) => {
       detectedMobility: response.detectedMobility,
     });
   } catch (error) {
-    console.error('Companion chat error:', error);
-    res.status(500).json({ error: 'Failed to generate response' });
+    console.error('[Companion] Chat error:', error.message, error.stack);
+    res.status(500).json({ error: 'Failed to generate response', message: error.message });
   }
 });
 

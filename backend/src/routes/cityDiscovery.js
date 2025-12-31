@@ -9,6 +9,12 @@ import { getDb } from '../config/firebase.js';
 
 const router = Router();
 
+// Debug: Log all requests to city discovery routes
+router.use((req, res, next) => {
+  console.log(`[CityDiscovery] ${req.method} ${req.path} - User: ${req.user?.uid || 'unknown'}`);
+  next();
+});
+
 /**
  * GET /api/city-discovery/cities/available
  * Get list of available cities
@@ -16,6 +22,7 @@ const router = Router();
  */
 router.get('/cities/available', async (req, res) => {
   try {
+    console.log('[CityDiscovery] Getting available cities...');
     const db = getDb();
     const citiesQuery = await db.collection('cityContent').get();
 
@@ -29,10 +36,11 @@ router.get('/cities/available', async (req, res) => {
       });
     });
 
+    console.log(`[CityDiscovery] Found ${cities.length} cities`);
     res.json({ cities });
   } catch (error) {
-    console.error('Get cities error:', error);
-    res.status(500).json({ error: 'Failed to get cities' });
+    console.error('[CityDiscovery] Get cities error:', error.message, error.stack);
+    res.status(500).json({ error: 'Failed to get cities', message: error.message });
   }
 });
 

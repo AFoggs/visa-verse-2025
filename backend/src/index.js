@@ -58,6 +58,12 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Request logging for debugging
+app.use((req, res, next) => {
+  console.log(`[Request] ${req.method} ${req.path}`);
+  next();
+});
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

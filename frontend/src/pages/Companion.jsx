@@ -115,11 +115,12 @@ function Companion() {
       }
     } catch (error) {
       console.error('Chat error:', error);
+      const errorMsg = error.message || 'Unknown error';
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: "I'm having trouble connecting right now. Let's try again in a moment.",
+          content: `I'm having trouble connecting right now (${errorMsg}). Let's try again in a moment.`,
           timestamp: new Date().toISOString(),
         },
       ]);

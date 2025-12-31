@@ -76,111 +76,85 @@ async function generateAIPersonalization(userProfile, cityContent, personality) 
   const country = cityContent.country;
   const interestsList = userProfile.interests.length > 0 ? userProfile.interests.join(', ') : 'general exploration, meeting locals, experiencing culture';
 
-  // First, search for real city information
-  const searchPrompt = `Search for current information about ${cityName}, ${country} including:
-1. Popular neighborhoods and districts for visitors
-2. Top-rated restaurants and food experiences
-3. Cultural attractions and activities
-4. Hidden gems and local favorites
-5. Practical travel tips
+  // Generate personalized recommendations using Claude's knowledge
+  const prompt = `You are a knowledgeable travel expert creating a personalized city guide for ${cityName}, ${country}.
 
-Focus on finding specific place names, addresses, and links where available.`;
-
-  try {
-    // Use web search to get real, current information
-    const anthropic = getAnthropicClient();
-    const searchResponse = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4000,
-      tools: [{
-        type: 'web_search',
-        name: 'web_search',
-        max_uses: 5
-      }],
-      messages: [{
-        role: 'user',
-        content: searchPrompt
-      }]
-    });
-
-    // Extract search results
-    let searchResults = '';
-    for (const block of searchResponse.content) {
-      if (block.type === 'text') {
-        searchResults += block.text + '\n';
-      }
-    }
-
-    // Now generate personalized recommendations based on search results
-    const personalizationPrompt = `Based on this research about ${cityName}, ${country}:
-
-${searchResults}
-
-Create a personalized city guide for a traveler with these preferences:
+USER PROFILE:
 - Interests: ${interestsList}
 - Activity preference: ${userProfile.activityPreference}
 - Social style: ${userProfile.socialStyle}
 - Travel reason: ${userProfile.travelReason || 'exploring and connecting with locals'}
-- Why here: ${userProfile.whyHere || 'looking for authentic experiences'}
+- Looking for: ${userProfile.whyHere || 'authentic local experiences'}
 
-Return ONLY valid JSON with this structure:
+Create a highly personalized city guide with REAL, SPECIFIC places in ${cityName}. Use your knowledge of this city to recommend actual neighborhoods, restaurants, attractions, and hidden gems.
+
+Return ONLY valid JSON (no markdown, no code blocks):
 {
-  "customIntro": "A warm 2-3 sentence intro connecting their interests to ${cityName}",
+  "customIntro": "A warm 2-3 sentence intro connecting their specific interests to ${cityName}'s unique character",
   "recommendedNeighborhoods": [
     {
-      "name": "Real neighborhood name",
-      "whyMatch": "Why this fits their interests",
-      "highlights": ["Specific place or attraction", "Another highlight"],
-      "link": "Google Maps or travel guide link if available"
+      "name": "Real neighborhood name in ${cityName}",
+      "whyMatch": "Why this specific neighborhood fits their interests",
+      "highlights": ["Specific landmark or attraction", "Notable feature"],
+      "link": "https://www.google.com/maps/search/NEIGHBORHOOD+NAME+${encodeURIComponent(cityName)}+${encodeURIComponent(country)}"
     }
   ],
   "mustDoActivities": [
     {
-      "activity": "Specific restaurant, attraction, or experience name",
-      "whyRelevant": "How it connects to their interests",
+      "activity": "Specific real restaurant, museum, or experience name",
+      "whyRelevant": "How it connects to their stated interests",
       "category": "food|culture|outdoor|nightlife|social",
-      "address": "Address if known",
-      "link": "Website or Google Maps link if available"
+      "address": "Approximate location or neighborhood",
+      "link": "https://www.google.com/search?q=PLACE+NAME+${encodeURIComponent(cityName)}"
     }
   ],
   "hiddenGems": [
     {
-      "place": "Specific lesser-known spot",
-      "description": "What makes it special",
-      "interest": "Which interest it matches",
-      "link": "Link if available"
+      "place": "Lesser-known but real spot",
+      "description": "What makes it special and worth visiting",
+      "interest": "Which of their interests it matches",
+      "link": "https://www.google.com/search?q=PLACE+NAME+${encodeURIComponent(cityName)}"
     }
   ],
   "practicalTips": [
-    "Specific practical tip for ${cityName}"
+    "Specific practical tip for visiting ${cityName}"
   ],
-  "localConnectionSuggestions": "What types of locals to connect with"
+  "localConnectionSuggestions": "What types of locals in ${cityName} would be great to connect with based on their interests"
 }
 
-REQUIREMENTS:
-- Use REAL place names from the search results
-- Include 3 neighborhoods, 4-5 activities, 3 hidden gems, 3 tips
-- Add links (Google Maps, TripAdvisor, official websites) where possible
-- Be specific - no generic placeholders`;
+CRITICAL REQUIREMENTS:
+- Use REAL places that exist in ${cityName} - no made up names
+- Include exactly 3 neighborhoods, 4-5 activities, 3 hidden gems, and 3 tips
+- Replace NEIGHBORHOOD+NAME and PLACE+NAME in links with actual URL-encoded names
+- Personalize every recommendation to their stated interests: ${interestsList}
+- Be specific and local - avoid generic tourist advice`;
 
+  try {
+    const anthropic = getAnthropicClient();
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 3000,
-      temperature: 0.5,
+      temperature: 0.7,
       messages: [{
         role: 'user',
-        content: personalizationPrompt
+        content: prompt
       }]
     });
 
     let content = response.content[0].text.trim();
+    // Clean up any markdown formatting
     content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+
+    // Try to extract JSON if there's extra text
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      content = jsonMatch[0];
+    }
 
     return JSON.parse(content);
   } catch (error) {
-    console.error('AI personalization with search failed:', error);
-    // Try without web search as fallback
-    return generateAIFallback(userProfile, cityContent);
+    console.error('AI personalization failed:', error);
+    return generateFallbackContent(userProfile, cityContent);
   }
 }
 
