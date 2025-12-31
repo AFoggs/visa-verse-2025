@@ -43,6 +43,16 @@ const CATEGORY_ICONS = {
   default: Star,
 };
 
+const LOADING_MESSAGES = [
+  'Researching local neighborhoods...',
+  'Finding hidden gems for you...',
+  'Discovering the best activities...',
+  'Curating personalized recommendations...',
+  'Exploring local favorites...',
+  'Gathering insider tips...',
+  'Mapping out your adventure...',
+];
+
 function CityDiscovery() {
   const { userProfile } = useAuth();
   const [selectedCity, setSelectedCity] = useState(null);
@@ -59,6 +69,17 @@ function CityDiscovery() {
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [notesLoading, setNotesLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+
+  // Cycle through loading messages
+  useEffect(() => {
+    if (loading || regenerating) {
+      const interval = setInterval(() => {
+        setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+      }, 2500);
+      return () => clearInterval(interval);
+    }
+  }, [loading, regenerating]);
 
   // Load available cities when userProfile is available
   useEffect(() => {
@@ -246,8 +267,27 @@ function CityDiscovery() {
 
   if (loading && !cityContent) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-400" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+          className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center mb-6"
+        >
+          <Compass size={32} className="text-white" />
+        </motion.div>
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={loadingMessageIndex}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="text-dark-200 text-center text-lg"
+          >
+            {LOADING_MESSAGES[loadingMessageIndex]}
+          </motion.p>
+        </AnimatePresence>
+        <p className="text-dark-400 text-sm mt-2">Personalizing your city guide</p>
       </div>
     );
   }
